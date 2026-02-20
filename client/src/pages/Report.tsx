@@ -78,7 +78,7 @@ export default function Report() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print Report
           </Button>
-          <Button>
+          <Button onClick={() => window.location.href = `/api/generate-report/${resume.id}`}>
             <Download className="mr-2 h-4 w-4" /> Export PDF
           </Button>
         </div>

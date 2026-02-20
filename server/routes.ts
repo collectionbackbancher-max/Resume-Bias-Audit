@@ -19,13 +19,61 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+import { spawn } from "child_process";
+import path from "path";
+import fs from "fs";
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Set up auth
+  // ... existing setup
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  app.get("/api/generate-report/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const resumeId = Number(req.params.id);
+      const resume = await storage.getResume(resumeId);
+      
+      if (!resume) {
+        return res.status(404).json({ message: "Resume not found" });
+      }
+
+      if (resume.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const reportData = {
+        filename: resume.filename,
+        score: resume.score,
+        riskLevel: resume.riskLevel,
+        analysis: resume.analysis,
+        timestamp: new Date(resume.createdAt || "").toLocaleString()
+      };
+
+      const outputPath = path.join("/tmp", `report_${resumeId}.pdf`);
+      const pythonProcess = spawn("python3", [
+        path.join(process.cwd(), "server/generate_report.py"),
+        JSON.stringify(reportData),
+        outputPath
+      ]);
+
+      pythonProcess.on("close", (code) => {
+        if (code === 0) {
+          res.download(outputPath, `${resume.filename}_Analysis.pdf`, (err) => {
+            if (err) console.error("Download error:", err);
+            fs.unlinkSync(outputPath); // Clean up
+          });
+        } else {
+          res.status(500).json({ message: "Failed to generate PDF report" });
+        }
+      });
+    } catch (err) {
+      console.error("Report generation error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   app.post("/api/scan-resume", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
