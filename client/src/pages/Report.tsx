@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { useParams, Link } from "wouter";
-import { useResume, useAnalyzeResume } from "@/hooks/use-resumes";
+import { useResume } from "@/hooks/use-resumes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Download, ChevronLeft, CheckCircle2, AlertTriangle, AlertOctagon, Printer } from "lucide-react";
@@ -11,15 +10,8 @@ export default function Report() {
   const { id } = useParams();
   const resumeId = parseInt(id || "0");
   const { data: resume, isLoading, error } = useResume(resumeId);
-  const analyzeMutation = useAnalyzeResume();
 
-  useEffect(() => {
-    if (resume && !resume.analysis && !analyzeMutation.isPending && !analyzeMutation.isSuccess) {
-      analyzeMutation.mutate(resumeId);
-    }
-  }, [resume, analyzeMutation, resumeId]);
-
-  if (isLoading || (resume && !resume.analysis && analyzeMutation.isPending)) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
