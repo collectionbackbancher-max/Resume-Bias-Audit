@@ -16,6 +16,11 @@ export const resumes = pgTable("resumes", {
   analysis: json("analysis").$type<{
     summary: string;
     biasFlags: { category: string; description: string; severity: "Low" | "Moderate" | "High"; suggestion: string }[];
+    scores?: {
+      language: number;
+      age: number;
+      name: number;
+    };
   }>(),
   createdAt: timestamp("created_at").defaultNow(),
 });

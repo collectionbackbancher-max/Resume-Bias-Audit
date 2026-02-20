@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Download, ChevronLeft, CheckCircle2, AlertTriangle, AlertOctagon, Printer } from "lucide-react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { BiasHeatmap } from "@/components/BiasHeatmap";
+import { ScoreBreakdown } from "@/components/ScoreBreakdown";
+import { AlertCircle } from "lucide-react";
 
 export default function Report() {
   const { id } = useParams();
@@ -43,6 +46,18 @@ export default function Report() {
   ];
   
   const scoreColor = score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444';
+
+  const HighlightedText = ({ text, flags }: { text: string, flags: any[] }) => {
+    let highlighted = text;
+    flags.forEach(flag => {
+      const phrase = flag.description.match(/"([^"]+)"/)?.[1];
+      if (phrase) {
+        const regex = new RegExp(`(${phrase})`, 'gi');
+        highlighted = highlighted.replace(regex, '<mark class="bg-destructive/20 rounded px-0.5 border-b-2 border-destructive/40 text-inherit">$1</mark>');
+      }
+    });
+    return <div dangerouslySetInnerHTML={{ __html: highlighted }} />;
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12 print:p-0 print:max-w-none">
@@ -159,56 +174,101 @@ export default function Report() {
       </div>
 
       {/* Detailed Analysis */}
-      <div>
-        <h2 className="text-2xl font-bold font-display mb-6">Detailed Bias Analysis</h2>
-        <div className="space-y-4">
-          {resume.analysis?.biasFlags.length === 0 ? (
-            <Card className="p-8 text-center border-dashed">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold">No significant bias detected</h3>
-              <p className="text-muted-foreground">This resume appears to use neutral, inclusive language.</p>
+      <div className="grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold font-display mb-4">Risk Heatmap</h2>
+            <BiasHeatmap text={resume.rawText} flags={resume.analysis?.biasFlags || []} />
+            <p className="text-xs text-muted-foreground mt-2">Visual representation of bias density across the document.</p>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold font-display mb-4">Score Breakdown</h2>
+            <Card>
+              <CardContent className="pt-6">
+                <ScoreBreakdown scores={(resume.analysis as any)?.scores || { language: score, age: 100, name: 100 }} />
+              </CardContent>
             </Card>
-          ) : (
-            resume.analysis?.biasFlags.map((flag, index) => (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="overflow-hidden border-l-4" style={{ 
-                  borderLeftColor: flag.severity === 'High' ? '#ef4444' : flag.severity === 'Moderate' ? '#eab308' : '#22c55e' 
-                }}>
-                  <div className="p-6">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div className="flex items-center gap-2">
-                        {flag.severity === 'High' ? <AlertOctagon className="text-red-500 h-5 w-5" /> : 
-                         flag.severity === 'Moderate' ? <AlertTriangle className="text-yellow-500 h-5 w-5" /> :
-                         <AlertCircle className="text-blue-500 h-5 w-5" />}
-                        <h3 className="font-semibold text-lg">{flag.category} Bias</h3>
-                      </div>
-                      <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wide ${
-                        flag.severity === 'High' ? 'bg-red-100 text-red-700' :
-                        flag.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {flag.severity} Severity
-                      </span>
-                    </div>
-                    
-                    <p className="text-foreground/80 mb-4">{flag.description}</p>
-                    
-                    <div className="bg-secondary/50 p-4 rounded-lg border border-secondary">
-                      <div className="text-sm font-semibold text-primary mb-1 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" /> Suggestion
-                      </div>
-                      <p className="text-sm text-muted-foreground">{flag.suggestion}</p>
-                    </div>
-                  </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold font-display mb-6">Annotated Resume</h2>
+            <Card>
+              <CardContent className="pt-6 font-serif leading-relaxed text-sm max-h-[600px] overflow-y-auto">
+                <HighlightedText text={resume.rawText} flags={resume.analysis?.biasFlags || []} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold font-display mb-6">Detailed Bias Analysis</h2>
+            <div className="space-y-4">
+              {resume.analysis?.biasFlags.length === 0 ? (
+                <Card className="p-8 text-center border-dashed">
+                  <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No significant bias detected</h3>
+                  <p className="text-muted-foreground">This resume appears to use neutral, inclusive language.</p>
                 </Card>
-              </motion.div>
-            ))
-          )}
+              ) : (
+                resume.analysis?.biasFlags.map((flag: any, index: number) => (
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="overflow-hidden border-l-4" style={{ 
+                      borderLeftColor: flag.severity === 'High' ? '#ef4444' : flag.severity === 'Moderate' ? '#eab308' : '#22c55e' 
+                    }}>
+                      <div className="p-6">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div className="flex items-center gap-2">
+                            {flag.severity === 'High' ? <AlertOctagon className="text-red-500 h-5 w-5" /> : 
+                             flag.severity === 'Moderate' ? <AlertTriangle className="text-yellow-500 h-5 w-5" /> :
+                             <AlertCircle className="text-blue-500 h-5 w-5" />}
+                            <h3 className="font-semibold text-lg">{flag.category} Bias</h3>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wide ${
+                            flag.severity === 'High' ? 'bg-red-100 text-red-700' :
+                            flag.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {flag.severity} Severity
+                          </span>
+                        </div>
+                        
+                        <p className="text-foreground/80 mb-4">{flag.description}</p>
+                        
+                        <div className="bg-secondary/50 p-4 rounded-lg border border-secondary">
+                          <div className="text-sm font-semibold text-primary mb-1 flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" /> Suggestion
+                          </div>
+                          <p className="text-sm text-muted-foreground">{flag.suggestion}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold">Audit Insights</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <p>Bias density is calculated based on the frequency and severity of flagged phrases within each section.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                <p>Scores are normalized against industry standards for inclusive hiring practices.</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

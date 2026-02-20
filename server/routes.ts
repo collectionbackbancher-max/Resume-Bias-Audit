@@ -73,7 +73,12 @@ export async function registerRoutes(
             description: f,
             severity: biasResult.riskLevel as "Low" | "Moderate" | "High",
             suggestion: "Consider neutralizing this language."
-          }))
+          })),
+          scores: {
+            language: biasResult.score,
+            age: 100,
+            name: 100
+          }
         }
       );
 
@@ -162,13 +167,18 @@ Respond with JSON matching this structure exactly:
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(aiResponse.choices[0].message?.content || "{}");
+      const aiResult = JSON.parse(aiResponse.choices[0].message?.content || "{}");
       
+      const scores = aiResult.scores || { language: aiResult.score || 0, age: aiResult.score || 0, name: aiResult.score || 0 };
+
       const updated = await storage.updateResumeAnalysis(
         resume.id,
-        result.score || 0,
-        result.riskLevel || "Moderate",
-        result.analysis || { summary: "Analysis failed", biasFlags: [] }
+        aiResult.score || 0,
+        aiResult.riskLevel || "Moderate",
+        {
+          ...(aiResult.analysis || { summary: "Analysis failed", biasFlags: [] }),
+          scores
+        }
       );
 
       res.json(updated);
