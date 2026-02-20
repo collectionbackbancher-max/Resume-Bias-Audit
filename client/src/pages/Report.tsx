@@ -133,9 +133,23 @@ export default function Report() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 {resume.analysis?.summary || "No summary available."}
               </p>
+              
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold mb-3">Flagged Phrases</h4>
+                <div className="flex flex-wrap gap-2">
+                  {resume.analysis?.biasFlags.map((flag, i) => (
+                    <div key={i} className="px-2 py-1 bg-destructive/10 text-destructive text-xs rounded border border-destructive/20 font-mono">
+                      {flag.description.match(/"([^"]+)"/)?.[1] || flag.description}
+                    </div>
+                  ))}
+                  {(!resume.analysis?.biasFlags || resume.analysis.biasFlags.length === 0) && (
+                    <span className="text-xs text-muted-foreground italic">None detected</span>
+                  )}
+                </div>
+              </div>
               
               <div className="grid grid-cols-2 gap-4 mt-8">
                 <div className="bg-secondary/50 p-4 rounded-xl">

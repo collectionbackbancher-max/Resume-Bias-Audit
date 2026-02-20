@@ -34,6 +34,12 @@ export default function Dashboard() {
     ? Math.round(resumes.reduce((acc, curr) => acc + (curr.score || 0), 0) / resumes.length) 
     : 0;
 
+  const riskCounts = {
+    Low: sortedResumes.filter(r => r.riskLevel === 'Low').length,
+    Moderate: sortedResumes.filter(r => r.riskLevel === 'Moderate').length,
+    High: sortedResumes.filter(r => r.riskLevel === 'High').length,
+  };
+
   return (
     <div className="space-y-8">
       {/* Header Stats */}
@@ -50,7 +56,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -58,7 +64,7 @@ export default function Dashboard() {
         >
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Audits</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Scans</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{resumes?.length || 0}</div>
@@ -71,30 +77,42 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <Card>
+          <Card className="border-l-4 border-l-green-500">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Average Fairness Score</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Low Risk</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2">
-                <div className="text-3xl font-bold">{avgScore}</div>
-                {avgScore > 80 && <TrendingUp className="text-green-500 h-5 w-5" />}
-              </div>
+              <div className="text-3xl font-bold text-green-600">{riskCounts.Low}</div>
             </CardContent>
           </Card>
         </motion.div>
-        
+
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none">
+          <Card className="border-l-4 border-l-yellow-500">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-primary-foreground/80">Pro Tip</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Moderate Risk</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm font-medium">Resumes with fewer adjectives tend to score 15% higher on fairness metrics.</p>
+              <div className="text-3xl font-bold text-yellow-600">{riskCounts.Moderate}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">High Risk</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-600">{riskCounts.High}</div>
             </CardContent>
           </Card>
         </motion.div>

@@ -89,36 +89,39 @@ export function useUploadResume() {
   });
 }
 
-export function useAnalyzeResume() {
+export function useScanResume() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      const url = buildUrl(api.resumes.analyze.path, { id });
-      const res = await fetch(url, {
-        method: api.resumes.analyze.method,
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/scan-resume", {
+        method: "POST",
+        body: formData,
         credentials: "include",
       });
 
       if (!res.ok) {
         if (res.status === 401) throw new Error("Unauthorized");
         const error = await res.json();
-        throw new Error(error.message || "Analysis failed");
+        throw new Error(error.message || "Failed to scan resume");
       }
-      return await res.json() as Resume;
+      return await res.json() as { score: number; riskLevel: string; flags: string[]; resumeId: number };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [api.resumes.get.path, data.id] });
       queryClient.invalidateQueries({ queryKey: [api.resumes.list.path] });
       toast({
-        title: "Analysis complete",
-        description: "Your resume bias report is ready.",
+        title: "Scan complete",
+        description: `Fairness score: ${data.score}/100`,
       });
+      return data;
     },
     onError: (error: Error) => {
       toast({
-        title: "Analysis failed",
+        title: "Scan failed",
         description: error.message,
         variant: "destructive",
       });
