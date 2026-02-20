@@ -5,6 +5,14 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import OpenAI from "openai";
+import multer from "multer";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
+import mammoth from "mammoth";
+import { analyzeBias } from "./bias_engine";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -18,6 +26,66 @@ export async function registerRoutes(
   // Set up auth
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  app.post("/api/scan-resume", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      let text = "";
+      const buffer = req.file.buffer;
+
+      if (req.file.mimetype === "application/pdf") {
+        const data = await pdfParse(buffer);
+        text = data.text;
+      } else if (
+        req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        const result = await mammoth.extractRawText({ buffer });
+        text = result.value;
+      } else {
+        return res.status(400).json({ message: "Unsupported file type. Please upload PDF or DOCX." });
+      }
+
+      if (!text || text.trim().length === 0) {
+        return res.status(400).json({ message: "Could not extract text from the file." });
+      }
+
+      const biasResult = analyzeBias(text);
+
+      // Store in database as a resume entry
+      const resume = await storage.createResume({
+        userId: req.user.claims.sub,
+        filename: req.file.originalname,
+        rawText: text,
+      });
+
+      // Update with scan results
+      const updated = await storage.updateResumeAnalysis(
+        resume.id,
+        biasResult.score,
+        biasResult.riskLevel,
+        {
+          summary: biasResult.explanation,
+          biasFlags: biasResult.flags.map(f => ({
+            category: "General",
+            description: f,
+            severity: biasResult.riskLevel as "Low" | "Moderate" | "High",
+            suggestion: "Consider neutralizing this language."
+          }))
+        }
+      );
+
+      res.json({
+        ...biasResult,
+        resumeId: updated.id
+      });
+    } catch (err) {
+      console.error("Scan error:", err);
+      res.status(500).json({ message: "Error processing resume scan" });
+    }
+  });
 
   app.get(api.resumes.list.path, isAuthenticated, async (req: any, res) => {
     try {
