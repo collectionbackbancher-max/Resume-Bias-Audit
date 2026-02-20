@@ -33,26 +33,26 @@ export async function registerRoutes(
 
   app.get("/api/generate-report/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const resumeId = Number(req.params.id);
-      const resume = await storage.getResume(resumeId);
+      const scanId = Number(req.params.id);
+      const scan = await storage.getScan(scanId);
       
-      if (!resume) {
-        return res.status(404).json({ message: "Resume not found" });
+      if (!scan) {
+        return res.status(404).json({ message: "Scan not found" });
       }
 
-      if (resume.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.claims.sub) {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
       const reportData = {
-        filename: resume.filename,
-        score: resume.score,
-        riskLevel: resume.riskLevel,
-        analysis: resume.analysis,
-        timestamp: new Date(resume.createdAt || "").toLocaleString()
+        filename: `Scan_${scanId}`,
+        score: scan.biasScore,
+        riskLevel: scan.riskLevel,
+        analysis: scan.flags,
+        timestamp: new Date(scan.createdAt || "").toLocaleString()
       };
 
-      const outputPath = path.join("/tmp", `report_${resumeId}.pdf`);
+      const outputPath = path.join("/tmp", `report_${scanId}.pdf`);
       const pythonProcess = spawn("python3", [
         path.join(process.cwd(), "server/generate_report.py"),
         JSON.stringify(reportData),
@@ -61,7 +61,7 @@ export async function registerRoutes(
 
       pythonProcess.on("close", (code) => {
         if (code === 0) {
-          res.download(outputPath, `${resume.filename}_Analysis.pdf`, (err) => {
+          res.download(outputPath, `Scan_${scanId}_Analysis.pdf`, (err) => {
             if (err) console.error("Download error:", err);
             fs.unlinkSync(outputPath); // Clean up
           });
@@ -102,16 +102,15 @@ export async function registerRoutes(
 
       const biasResult = analyzeBias(text);
 
-      // Store in database as a resume entry
-      const resume = await storage.createResume({
+      // Store in database as a scan entry
+      const scan = await storage.createScan({
         userId: req.user.claims.sub,
-        filename: req.file.originalname,
-        rawText: text,
+        resumeText: text,
       });
 
       // Update with scan results
-      const updated = await storage.updateResumeAnalysis(
-        resume.id,
+      const updated = await storage.updateScanAnalysis(
+        scan.id,
         biasResult.score,
         biasResult.riskLevel,
         {
@@ -130,8 +129,16 @@ export async function registerRoutes(
         }
       );
 
+      // Update user scan count
+      try {
+        await storage.incrementScanCount(req.user.claims.sub);
+      } catch (e) {
+        console.error("Failed to increment scan count", e);
+      }
+
       res.json({
         ...biasResult,
+        scan_id: updated.id,
         resumeId: updated.id
       });
     } catch (err) {
@@ -143,7 +150,7 @@ export async function registerRoutes(
   app.get(api.resumes.list.path, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const items = await storage.getUserResumes(userId);
+      const items = await storage.getUserScans(userId);
       res.json(items);
     } catch (err) {
       res.status(500).json({ message: "Server error" });
@@ -152,14 +159,14 @@ export async function registerRoutes(
 
   app.get(api.resumes.get.path, isAuthenticated, async (req: any, res) => {
     try {
-      const resume = await storage.getResume(Number(req.params.id));
-      if (!resume) {
+      const scan = await storage.getScan(Number(req.params.id));
+      if (!scan) {
         return res.status(404).json({ message: "Not found" });
       }
-      if (resume.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.claims.sub) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      res.json(resume);
+      res.json(scan);
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -168,12 +175,11 @@ export async function registerRoutes(
   app.post(api.resumes.upload.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.resumes.upload.input.parse(req.body);
-      const resume = await storage.createResume({
+      const scan = await storage.createScan({
         userId: req.user.claims.sub,
-        filename: input.filename,
-        rawText: input.text,
+        resumeText: input.text,
       });
-      res.status(201).json(resume);
+      res.status(201).json(scan);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
@@ -187,15 +193,15 @@ export async function registerRoutes(
 
   app.post(api.resumes.analyze.path, isAuthenticated, async (req: any, res) => {
     try {
-      const resume = await storage.getResume(Number(req.params.id));
-      if (!resume) return res.status(404).json({ message: "Not found" });
-      if (resume.userId !== req.user.claims.sub) return res.status(401).json({ message: "Unauthorized" });
-      if (resume.analysis) return res.json(resume); // already analyzed
+      const scan = await storage.getScan(Number(req.params.id));
+      if (!scan) return res.status(404).json({ message: "Not found" });
+      if (scan.userId !== req.user.claims.sub) return res.status(401).json({ message: "Unauthorized" });
+      if (scan.biasScore !== null) return res.json(scan); // already analyzed
 
       // Call OpenAI to analyze bias
       const prompt = `Analyze the following resume for bias (gender, age, race, socioeconomic, etc.).
 Resume text:
-${resume.rawText}
+${scan.resumeText}
 
 Respond with JSON matching this structure exactly:
 {
@@ -210,7 +216,7 @@ Respond with JSON matching this structure exactly:
 }`;
 
       const aiResponse = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
       });
@@ -219,8 +225,8 @@ Respond with JSON matching this structure exactly:
       
       const scores = aiResult.scores || { language: aiResult.score || 0, age: aiResult.score || 0, name: aiResult.score || 0 };
 
-      const updated = await storage.updateResumeAnalysis(
-        resume.id,
+      const updated = await storage.updateScanAnalysis(
+        scan.id,
         aiResult.score || 0,
         aiResult.riskLevel || "Moderate",
         {

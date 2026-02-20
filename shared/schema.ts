@@ -1,31 +1,39 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, varchar, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Re-export auth models to ensure they are created
 export * from "./models/auth";
-import { users } from "./models/auth";
+import { users as authUsers } from "./models/auth";
 
-export const resumes = pgTable("resumes", {
+export const usersMetadata = pgTable("users_metadata", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  filename: text("filename").notNull(),
-  rawText: text("raw_text").notNull(),
-  score: integer("score"),
-  riskLevel: text("risk_level"), // "Low", "Moderate", "High"
-  analysis: json("analysis").$type<{
-    summary: string;
-    biasFlags: { category: string; description: string; severity: "Low" | "Moderate" | "High"; suggestion: string }[];
-    scores?: {
-      language: number;
-      age: number;
-      name: number;
-    };
-  }>(),
-  createdAt: timestamp("created_at").defaultNow(),
+  userId: varchar("user_id").notNull().references(() => authUsers.id),
+  email: text("email").notNull(),
+  subscriptionPlan: text("subscription_plan").default("free").notNull(),
+  scansUsed: integer("scans_used").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertResumeSchema = createInsertSchema(resumes).omit({ id: true, createdAt: true });
+export const scans = pgTable("scans", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => authUsers.id),
+  resumeText: text("resume_text").notNull(),
+  biasScore: integer("bias_score"),
+  riskLevel: text("risk_level"),
+  flags: json("flags").$type<any>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
-export type Resume = typeof resumes.$inferSelect;
-export type InsertResume = z.infer<typeof insertResumeSchema>;
+export const insertUserMetadataSchema = createInsertSchema(usersMetadata).omit({ id: true, createdAt: true });
+export const insertScanSchema = createInsertSchema(scans).omit({ id: true, createdAt: true });
+
+export type UserMetadata = typeof usersMetadata.$inferSelect;
+export type Scan = typeof scans.$inferSelect;
+export type InsertScan = z.infer<typeof insertScanSchema>;
+
+// Alias for existing code compatibility
+export const resumes = scans;
+export const insertResumeSchema = insertScanSchema;
+export type Resume = Scan;
+export type InsertResume = InsertScan;
