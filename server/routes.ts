@@ -10,7 +10,7 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
-import { analyzeBias } from "./bias_engine";
+import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -233,39 +233,23 @@ export async function registerRoutes(
       if (scan.biasScore !== null) return res.json(scan); // already analyzed
 
       // Call OpenAI to analyze bias
-      const prompt = `Analyze the following resume for bias (gender, age, race, socioeconomic, etc.).
-Resume text:
-${scan.resumeText}
-
-Respond with JSON matching this structure exactly:
-{
-  "score": <0-100 fairness score, 100 is perfectly unbiased>,
-  "riskLevel": "<Low | Moderate | High>",
-  "analysis": {
-    "summary": "<overall summary>",
-    "biasFlags": [
-      { "category": "<type of bias>", "description": "<description>", "severity": "<Low|Moderate|High>", "suggestion": "<rewrite suggestion>" }
-    ]
-  }
-}`;
-
-      const aiResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      });
-
-      const aiResult = JSON.parse(aiResponse.choices[0].message?.content || "{}");
-      
-      const scores = aiResult.scores || { language: aiResult.score || 0, age: aiResult.score || 0, name: aiResult.score || 0 };
+      const biasResult = analyzeBias(scan.resumeText);
+      const suggestions = await generateRewriteSuggestions(scan.resumeText, biasResult.flags);
 
       const updated = await storage.updateScanAnalysis(
         scan.id,
-        aiResult.score || 0,
-        aiResult.riskLevel || "Moderate",
+        biasResult.score,
+        biasResult.riskLevel,
         {
-          ...(aiResult.analysis || { summary: "Analysis failed", biasFlags: [] }),
-          scores
+          summary: biasResult.explanation,
+          biasFlags: biasResult.flags.map(f => ({
+            category: "General",
+            description: f,
+            severity: "Moderate",
+            suggestion: suggestions.find(s => f.includes(s.original))?.suggestion || "Consider more inclusive language"
+          })),
+          suggestions,
+          scores: { language: biasResult.score, age: biasResult.score, name: 100 }
         }
       );
 
