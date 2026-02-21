@@ -12,6 +12,7 @@ export const usersMetadata = pgTable("users_metadata", {
   email: text("email").notNull(),
   subscriptionPlan: text("subscription_plan").default("free").notNull(),
   scansUsed: integer("scans_used").default(0).notNull(),
+  lastScanReset: timestamp("last_scan_reset").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

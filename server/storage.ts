@@ -54,9 +54,19 @@ export class DatabaseStorage implements IStorage {
   async incrementScanCount(userId: string): Promise<void> {
     const user = await this.getUserMetadata(userId);
     if (user) {
-      await db.update(usersMetadata)
-        .set({ scansUsed: user.scansUsed + 1 })
-        .where(eq(usersMetadata.userId, userId));
+      const now = new Date();
+      const lastReset = new Date(user.lastScanReset);
+      
+      // Check if it's a new month
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        await db.update(usersMetadata)
+          .set({ scansUsed: 1, lastScanReset: now })
+          .where(eq(usersMetadata.userId, userId));
+      } else {
+        await db.update(usersMetadata)
+          .set({ scansUsed: user.scansUsed + 1 })
+          .where(eq(usersMetadata.userId, userId));
+      }
     }
   }
 

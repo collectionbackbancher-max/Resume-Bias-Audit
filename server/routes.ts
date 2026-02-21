@@ -77,6 +77,40 @@ export async function registerRoutes(
 
   app.post("/api/scan-resume", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      let userMeta = await storage.getUserMetadata(userId);
+      
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId, 
+          email: req.user.claims.email || "unknown@example.com" 
+        });
+      }
+
+      // Monthly Reset Logic and Limit Check
+      const now = new Date();
+      const lastReset = new Date(userMeta.lastScanReset);
+      let currentScans = userMeta.scansUsed;
+
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        currentScans = 0;
+      }
+
+      const limits: Record<string, number> = {
+        free: 10,
+        starter: 100,
+        team: 500
+      };
+      
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      const limit = limits[plan] || 10;
+
+      if (currentScans >= limit) {
+        return res.status(403).json({ 
+          message: `Monthly scan limit reached for ${userMeta.subscriptionPlan} plan (${limit} scans).` 
+        });
+      }
+
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
