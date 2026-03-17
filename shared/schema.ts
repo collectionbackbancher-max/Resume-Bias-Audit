@@ -19,6 +19,7 @@ export const usersMetadata = pgTable("users_metadata", {
 export const scans = pgTable("scans", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => authUsers.id),
+  filename: text("filename").default("resume").notNull(),
   resumeText: text("resume_text").notNull(),
   biasScore: integer("bias_score"),
   riskLevel: text("risk_level"),

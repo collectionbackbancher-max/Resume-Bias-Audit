@@ -8,7 +8,8 @@ import OpenAI from "openai";
 import multer from "multer";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+const _pdfParseModule = require("pdf-parse");
+const pdfParse = _pdfParseModule.default ?? _pdfParseModule;
 import mammoth from "mammoth";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
 
@@ -139,6 +140,7 @@ export async function registerRoutes(
       // Store in database as a scan entry
       const scan = await storage.createScan({
         userId: req.user.claims.sub,
+        filename: req.file.originalname,
         resumeText: text,
       });
 
@@ -181,11 +183,21 @@ export async function registerRoutes(
     }
   });
 
+  // Helper to normalize scan fields for frontend consumption
+  function normalizeScan(scan: any) {
+    return {
+      ...scan,
+      score: scan.biasScore ?? null,
+      analysis: scan.flags ?? null,
+      filename: scan.filename || "resume",
+    };
+  }
+
   app.get(api.resumes.list.path, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const items = await storage.getUserScans(userId);
-      res.json(items);
+      res.json(items.map(normalizeScan));
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -200,7 +212,7 @@ export async function registerRoutes(
       if (scan.userId !== req.user.claims.sub) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      res.json(scan);
+      res.json(normalizeScan(scan));
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -211,6 +223,7 @@ export async function registerRoutes(
       const input = api.resumes.upload.input.parse(req.body);
       const scan = await storage.createScan({
         userId: req.user.claims.sub,
+        filename: input.filename || "resume.txt",
         resumeText: input.text,
       });
       res.status(201).json(scan);
