@@ -6,13 +6,8 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import OpenAI from "openai";
 import multer from "multer";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const _pdfParseModule = require("pdf-parse");
-const pdfParse = _pdfParseModule.default ?? _pdfParseModule;
-import mammoth from "mammoth";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
-import { extractTextWithOCR } from "./ocr";
+import { extractResumeText } from "./extract";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -117,52 +112,21 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const { originalname, mimetype, size, buffer } = req.file;
-      console.log(`[scan] Processing upload: "${originalname}" | type: ${mimetype} | size: ${size} bytes`);
+      const { originalname, mimetype, buffer } = req.file;
 
-      let text = "";
-
-      if (mimetype === "application/pdf") {
-        console.log(`[scan] Parsing PDF with pdf-parse...`);
-        const data = await pdfParse(buffer);
-        text = (data.text || "").trim();
-        console.log(`[scan] PDF parsed: ${data.numpages} page(s), extracted ${text.length} chars`);
-
-        // If pdf-parse returns empty or very little text, try OCR fallback
-        if (text.length < 50) {
-          console.log(`[scan] Text too short (${text.length} chars) — triggering OCR fallback`);
-          const ocrText = await extractTextWithOCR(buffer);
-          if (ocrText && ocrText.length > text.length) {
-            console.log(`[scan] OCR fallback succeeded: ${ocrText.length} chars`);
-            text = ocrText;
-          } else {
-            console.warn(`[scan] OCR fallback returned no usable text`);
-          }
-        }
-      } else if (
-        mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        mimetype === "application/msword"
-      ) {
-        console.log(`[scan] Parsing DOCX with mammoth...`);
-        const result = await mammoth.extractRawText({ buffer });
-        text = (result.value || "").trim();
-        if (result.messages?.length) {
-          console.warn(`[scan] mammoth warnings:`, result.messages);
-        }
-        console.log(`[scan] DOCX parsed: extracted ${text.length} chars`);
-      } else {
-        console.warn(`[scan] Rejected unsupported MIME type: ${mimetype}`);
-        return res.status(400).json({ message: "Unsupported file type. Please upload a PDF or DOCX file." });
+      // Extract text — handles PDF (with OCR fallback) and DOCX
+      let extraction: { text: string; length: number; source: string };
+      try {
+        extraction = await extractResumeText(buffer, originalname, mimetype);
+      } catch (extractErr: any) {
+        console.warn(`[scan] Extraction failed: ${extractErr.message}`);
+        return res.status(400).json({ message: extractErr.message });
       }
 
-      if (!text || text.length === 0) {
-        console.warn(`[scan] No text extracted from "${originalname}" — likely a scanned image PDF`);
-        return res.status(400).json({
-          message: "No text found. This may be a scanned (image-based) PDF. Please use a text-based PDF or paste the resume text manually.",
-        });
-      }
-
-      console.log(`[scan] Text extraction successful: ${text.length} characters ready for bias analysis`);
+      const { text, length: textLength, source: extractionSource } = extraction;
+      console.log(
+        `[scan] Extraction summary — source: ${extractionSource} | length: ${textLength} chars | OCR used: ${extractionSource === "ocr" ? "YES" : "NO"}`
+      );
 
       const biasResult = analyzeBias(text);
 
@@ -204,7 +168,12 @@ export async function registerRoutes(
       res.json({
         ...biasResult,
         scan_id: updated.id,
-        resumeId: updated.id
+        resumeId: updated.id,
+        extraction: {
+          text: text.slice(0, 200) + (text.length > 200 ? "…" : ""), // preview only
+          length: textLength,
+          source: extractionSource,
+        },
       });
     } catch (err) {
       console.error("Scan error:", err);
