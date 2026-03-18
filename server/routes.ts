@@ -28,6 +28,55 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // ── Debug endpoint: POST /debug-scan ────────────────────────────────────────
+  // Returns extraction metadata without running bias analysis or saving to DB.
+  // Protected by auth; only available in development.
+  app.post("/debug-scan", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    const start = Date.now();
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded. Send a multipart/form-data request with a 'file' field." });
+    }
+
+    const { originalname, mimetype, size, buffer } = req.file;
+
+    console.log(`[debug-scan] Received: "${originalname}" | MIME: ${mimetype} | size: ${size} bytes`);
+
+    let extractionMethod = "unknown";
+    let textPreview = "";
+    let fullLength = 0;
+    let extractionError: string | null = null;
+
+    try {
+      const result = await extractResumeText(buffer, originalname, mimetype);
+      extractionMethod = result.source;
+      fullLength = result.length;
+      textPreview = result.text.slice(0, 300) + (result.text.length > 300 ? "…" : "");
+    } catch (err: any) {
+      extractionError = err.message;
+      console.warn(`[debug-scan] Extraction failed: ${err.message}`);
+    }
+
+    const elapsed = Date.now() - start;
+    console.log(`[debug-scan] Done in ${elapsed}ms — method: ${extractionMethod} | length: ${fullLength}`);
+
+    return res.json({
+      file: {
+        name: originalname,
+        type: mimetype,
+        size_bytes: size,
+      },
+      extraction: {
+        method: extractionMethod,
+        text_preview: textPreview,
+        full_length: fullLength,
+        ocr_used: extractionMethod === "ocr",
+        error: extractionError,
+      },
+      elapsed_ms: elapsed,
+    });
+  });
+
   app.get("/api/generate-report/:id", isAuthenticated, async (req: any, res) => {
     try {
       const scanId = Number(req.params.id);
