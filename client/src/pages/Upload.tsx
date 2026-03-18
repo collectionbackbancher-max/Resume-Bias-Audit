@@ -50,6 +50,7 @@ export default function Upload() {
     "idle" | "uploading" | "processing" | "done" | "error"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorSuggestion, setErrorSuggestion] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 
   const [, setLocation] = useLocation();
@@ -63,6 +64,7 @@ export default function Upload() {
       setFilename(acceptedFiles[0].name);
       setScanResult(null);
       setErrorMessage(null);
+      setErrorSuggestion(null);
       setUploadPhase("idle");
       setUploadProgress(0);
     }
@@ -81,6 +83,7 @@ export default function Upload() {
   // ── File scan via axios (with progress) ───────────────────────────────────
   const scanFile = async (file: File) => {
     setErrorMessage(null);
+    setErrorSuggestion(null);
     setScanResult(null);
     setUploadProgress(0);
     setUploadPhase("uploading");
@@ -107,11 +110,21 @@ export default function Upload() {
       queryClient.invalidateQueries({ queryKey: [api.resumes.list.path] });
     } catch (err: any) {
       setUploadPhase("error");
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Upload failed. Please try again.";
-      setErrorMessage(msg);
+      // Handle structured error response: { error: "...", suggestion: "..." }
+      const error = err?.response?.data?.error;
+      const suggestion = err?.response?.data?.suggestion;
+      if (error) {
+        setErrorMessage(error);
+        setErrorSuggestion(suggestion || null);
+      } else {
+        // Fallback for non-structured errors
+        setErrorMessage(
+          err?.response?.data?.message ||
+          err?.message ||
+          "Upload failed. Please try again."
+        );
+        setErrorSuggestion(null);
+      }
     }
   };
 
@@ -187,6 +200,7 @@ export default function Upload() {
                     setSelectedFile(null);
                     setScanResult(null);
                     setErrorMessage(null);
+                    setErrorSuggestion(null);
                     setUploadPhase("idle");
                     setUploadProgress(0);
                   }}
@@ -262,11 +276,18 @@ export default function Upload() {
             <div>
               <p className="font-semibold text-sm">Upload failed</p>
               <p className="text-sm mt-0.5 opacity-90">{errorMessage}</p>
+              {errorSuggestion && (
+                <p className="text-sm mt-1.5 opacity-75 italic">💡 {errorSuggestion}</p>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 className="mt-2 text-destructive hover:text-destructive px-0"
-                onClick={() => { setUploadPhase("idle"); setErrorMessage(null); }}
+                onClick={() => {
+                  setUploadPhase("idle");
+                  setErrorMessage(null);
+                  setErrorSuggestion(null);
+                }}
                 data-testid="button-retry"
               >
                 Try again

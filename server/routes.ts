@@ -7,7 +7,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import OpenAI from "openai";
 import multer from "multer";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
-import { extractResumeText } from "./extract";
+import { extractResumeText, ExtractionError } from "./extract";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -53,12 +53,34 @@ export async function registerRoutes(
       fullLength = result.length;
       textPreview = result.text.slice(0, 300) + (result.text.length > 300 ? "…" : "");
     } catch (err: any) {
+      // Handle structured ExtractionError
+      if (err instanceof ExtractionError) {
+        const elapsed = Date.now() - start;
+        console.warn(`[debug-scan] Extraction error: ${err.error}`);
+        return res.status(400).json({
+          file: { name: originalname, type: mimetype, size_bytes: size },
+          error: err.error,
+          suggestion: err.suggestion,
+          elapsed_ms: elapsed,
+        });
+      }
+      // Fallback for other errors
       extractionError = err.message;
       console.warn(`[debug-scan] Extraction failed: ${err.message}`);
     }
 
     const elapsed = Date.now() - start;
     console.log(`[debug-scan] Done in ${elapsed}ms — method: ${extractionMethod} | length: ${fullLength}`);
+
+    // If there was a non-structured error, return it in the success response
+    if (extractionError) {
+      return res.status(400).json({
+        file: { name: originalname, type: mimetype, size_bytes: size },
+        error: extractionError,
+        suggestion: "Try uploading a different file or contact support.",
+        elapsed_ms: elapsed,
+      });
+    }
 
     return res.json({
       file: {
@@ -71,7 +93,7 @@ export async function registerRoutes(
         text_preview: textPreview,
         full_length: fullLength,
         ocr_used: extractionMethod === "ocr",
-        error: extractionError,
+        error: null,
       },
       elapsed_ms: elapsed,
     });
@@ -158,18 +180,41 @@ export async function registerRoutes(
       }
 
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({
+          error: "No file uploaded.",
+          suggestion: "Please select a file to upload."
+        });
       }
 
-      const { originalname, mimetype, buffer } = req.file;
+      const { originalname, mimetype, size, buffer } = req.file;
+
+      // Check for empty files
+      if (size === 0 || buffer.length === 0) {
+        return res.status(400).json({
+          error: "The uploaded file is empty.",
+          suggestion: "Please upload a file that contains resume content."
+        });
+      }
 
       // Extract text — handles PDF (with OCR fallback) and DOCX
       let extraction: { text: string; length: number; source: string };
       try {
         extraction = await extractResumeText(buffer, originalname, mimetype);
       } catch (extractErr: any) {
+        // Check if it's our custom ExtractionError (has .error and .suggestion)
+        if (extractErr.name === "ExtractionError" && extractErr.error && extractErr.suggestion) {
+          console.warn(`[scan] Extraction error: ${extractErr.error}`);
+          return res.status(400).json({
+            error: extractErr.error,
+            suggestion: extractErr.suggestion
+          });
+        }
+        // Fallback for other errors
         console.warn(`[scan] Extraction failed: ${extractErr.message}`);
-        return res.status(400).json({ message: extractErr.message });
+        return res.status(400).json({
+          error: "Failed to extract text from file.",
+          suggestion: "Try uploading a different file or paste the resume text manually."
+        });
       }
 
       const { text, length: textLength, source: extractionSource } = extraction;

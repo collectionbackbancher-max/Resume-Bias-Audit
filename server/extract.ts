@@ -16,6 +16,16 @@ export interface ExtractionResult {
 }
 
 /**
+ * Custom error with user-friendly message and actionable suggestion.
+ */
+export class ExtractionError extends Error {
+  constructor(public error: string, public suggestion: string) {
+    super(error);
+    this.name = "ExtractionError";
+  }
+}
+
+/**
  * Normalize extracted text:
  * - Collapse runs of 3+ blank lines into two
  * - Collapse runs of spaces/tabs on a single line into one space
@@ -70,21 +80,32 @@ async function extractFromPDF(
       `[extract] Extracted text too short (${cleaned.length} < ${MIN_TEXT_LENGTH} chars) — triggering OCR fallback`
     );
     let ocrRaw = "";
+    let ocrErrorMsg = "";
     try {
       ocrRaw = await extractTextWithOCR(buffer);
     } catch (ocrErr: any) {
-      console.error(`[extract] OCR pipeline error: ${ocrErr.message}`);
+      // OCR threw a fatal error (e.g., Tesseract not installed)
+      ocrErrorMsg = ocrErr.message || "Unknown OCR error";
+      console.error(`[extract] OCR failed: ${ocrErrorMsg}`);
     }
 
     const ocrCleaned = cleanText(ocrRaw);
     console.log(`[extract] OCR result length: ${ocrCleaned.length} chars`);
-    console.log(`[extract] OCR used: ${ocrCleaned.length > cleaned.length ? "YES" : "NO (pdf-parse was better)"}`);
+    console.log(`[extract] OCR used: ${ocrCleaned.length > cleaned.length ? "YES" : "NO"}`);
 
     if (ocrCleaned.length > cleaned.length) {
       return { text: ocrCleaned, length: ocrCleaned.length, source: "ocr" };
     }
 
-    // Both sources failed — return whatever we have (may be empty)
+    // Both pdf-parse and OCR failed to extract meaningful text
+    if (ocrErrorMsg) {
+      throw new ExtractionError(
+        `OCR processing failed: ${ocrErrorMsg}`,
+        "This usually means the OCR engine is misconfigured. Please try a different file or contact support."
+      );
+    }
+
+    // Both sources tried but returned minimal text
     return { text: cleaned, length: cleaned.length, source: "pdf-parse" };
   }
 
@@ -140,8 +161,9 @@ export async function extractResumeText(
     result = await extractFromDOCX(buffer, filename);
   } else {
     console.warn(`[extract] Unsupported MIME type: ${mimetype}`);
-    throw new Error(
-      "Unsupported file type. Please upload a PDF or DOCX file."
+    throw new ExtractionError(
+      "Unsupported file type. Only PDF and DOCX files are supported.",
+      "Please upload a PDF or DOCX file (e.g., resume.pdf, resume.docx)."
     );
   }
 
@@ -150,9 +172,9 @@ export async function extractResumeText(
   );
 
   if (result.length === 0) {
-    throw new Error(
-      "No text found. This may be a scanned (image-based) PDF. " +
-        "Please use a text-based PDF or paste the resume text manually."
+    throw new ExtractionError(
+      "No text could be extracted from the file.",
+      "This may be a scanned image PDF. Try uploading a text-based PDF, a DOCX file, or paste the resume text manually."
     );
   }
 
