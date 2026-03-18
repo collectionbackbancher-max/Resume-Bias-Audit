@@ -12,6 +12,7 @@ const _pdfParseModule = require("pdf-parse");
 const pdfParse = _pdfParseModule.default ?? _pdfParseModule;
 import mammoth from "mammoth";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
+import { extractTextWithOCR } from "./ocr";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -124,9 +125,20 @@ export async function registerRoutes(
       if (mimetype === "application/pdf") {
         console.log(`[scan] Parsing PDF with pdf-parse...`);
         const data = await pdfParse(buffer);
-        // pdf-parse concatenates all pages — collect and trim
         text = (data.text || "").trim();
         console.log(`[scan] PDF parsed: ${data.numpages} page(s), extracted ${text.length} chars`);
+
+        // If pdf-parse returns empty or very little text, try OCR fallback
+        if (text.length < 50) {
+          console.log(`[scan] Text too short (${text.length} chars) — triggering OCR fallback`);
+          const ocrText = await extractTextWithOCR(buffer);
+          if (ocrText && ocrText.length > text.length) {
+            console.log(`[scan] OCR fallback succeeded: ${ocrText.length} chars`);
+            text = ocrText;
+          } else {
+            console.warn(`[scan] OCR fallback returned no usable text`);
+          }
+        }
       } else if (
         mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
         mimetype === "application/msword"
