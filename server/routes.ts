@@ -116,24 +116,41 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      const { originalname, mimetype, size, buffer } = req.file;
+      console.log(`[scan] Processing upload: "${originalname}" | type: ${mimetype} | size: ${size} bytes`);
+
       let text = "";
-      const buffer = req.file.buffer;
 
-      if (req.file.mimetype === "application/pdf") {
+      if (mimetype === "application/pdf") {
+        console.log(`[scan] Parsing PDF with pdf-parse...`);
         const data = await pdfParse(buffer);
-        text = data.text;
+        // pdf-parse concatenates all pages — collect and trim
+        text = (data.text || "").trim();
+        console.log(`[scan] PDF parsed: ${data.numpages} page(s), extracted ${text.length} chars`);
       } else if (
-        req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        mimetype === "application/msword"
       ) {
+        console.log(`[scan] Parsing DOCX with mammoth...`);
         const result = await mammoth.extractRawText({ buffer });
-        text = result.value;
+        text = (result.value || "").trim();
+        if (result.messages?.length) {
+          console.warn(`[scan] mammoth warnings:`, result.messages);
+        }
+        console.log(`[scan] DOCX parsed: extracted ${text.length} chars`);
       } else {
-        return res.status(400).json({ message: "Unsupported file type. Please upload PDF or DOCX." });
+        console.warn(`[scan] Rejected unsupported MIME type: ${mimetype}`);
+        return res.status(400).json({ message: "Unsupported file type. Please upload a PDF or DOCX file." });
       }
 
-      if (!text || text.trim().length === 0) {
-        return res.status(400).json({ message: "Could not extract text from the file." });
+      if (!text || text.length === 0) {
+        console.warn(`[scan] No text extracted from "${originalname}" — likely a scanned image PDF`);
+        return res.status(400).json({
+          message: "No text found. This may be a scanned (image-based) PDF. Please use a text-based PDF or paste the resume text manually.",
+        });
       }
+
+      console.log(`[scan] Text extraction successful: ${text.length} characters ready for bias analysis`);
 
       const biasResult = analyzeBias(text);
 
