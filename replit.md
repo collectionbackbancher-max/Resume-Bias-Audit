@@ -121,6 +121,12 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 - **Loading States**: Animated spinner with gradient colors
 - **Better Empty State**: Visually enhanced empty state with clear CTA
 
+### Auth Pages Redesign
+- **Login Page** (`client/src/pages/Login.tsx`): Neon blue/black theme with gradient card, cyan button, background orbs
+- **Signup Page** (`client/src/pages/Signup.tsx`): Matches login with same neon aesthetic, dark inputs with cyan borders
+- **Success Message**: Email confirmation page with emerald success indicator
+- **Consistent Branding**: All auth pages use cyan accents, white text, dark backgrounds
+
 ### Policy Pages
 - **Terms of Service** (`client/src/pages/TermsOfService.tsx`): Complete T&S documentation
 - **Privacy Policy** (`client/src/pages/PrivacyPolicy.tsx`): Data collection and usage terms

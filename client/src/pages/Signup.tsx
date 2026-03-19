@@ -45,22 +45,26 @@ export default function Signup() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        {/* Background gradient orbs */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md"
+          className="w-full max-w-md relative z-10"
         >
-          <Card className="shadow-lg border-border/50 text-center p-8">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <Card className="shadow-lg border-cyan-500/20 bg-gradient-to-br from-slate-900/50 to-black text-center p-8">
+            <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-display font-bold mb-2">Check your email</h2>
-            <p className="text-muted-foreground mb-6">
-              We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+            <h2 className="text-2xl font-display font-bold text-white mb-2">Check your email</h2>
+            <p className="text-gray-400 mb-6">
+              We sent a confirmation link to <strong className="text-cyan-400">{email}</strong>. Click it to activate your account.
             </p>
             <Link href="/login">
-              <Button variant="outline" className="w-full">Back to Login</Button>
+              <Button className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-semibold rounded-lg">Back to Login</Button>
             </Link>
           </Card>
         </motion.div>
@@ -69,19 +73,23 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4 overflow-hidden relative">
+      {/* Background gradient orbs */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-center mb-8"
         >
-          <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-2xl">
-            <div className="bg-primary/10 p-2.5 rounded-xl">
-              <ShieldCheck className="h-6 w-6 text-primary" />
+          <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-2xl group">
+            <div className="bg-cyan-500/20 p-2.5 rounded-xl border border-cyan-500/30 group-hover:border-cyan-500/50 transition-colors">
+              <ShieldCheck className="h-6 w-6 text-cyan-400" />
             </div>
-            BiasAuditor<span className="text-primary">.ai</span>
+            <span className="text-white">BiasAuditor<span className="text-cyan-400">.ai</span></span>
           </Link>
         </motion.div>
 
@@ -90,21 +98,21 @@ export default function Signup() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <Card className="shadow-lg border-border/50">
+          <Card className="shadow-lg border-cyan-500/20 bg-gradient-to-br from-slate-900/50 to-black backdrop-blur">
             <CardHeader className="pb-4">
-              <CardTitle className="text-2xl font-display">Create your account</CardTitle>
-              <CardDescription>Start auditing resumes for bias — free forever</CardDescription>
+              <CardTitle className="text-2xl font-display text-white">Create your account</CardTitle>
+              <CardDescription className="text-gray-400">Start auditing resumes for bias — free forever</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
-                  <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm" data-testid="status-signup-error">
+                  <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm" data-testid="status-signup-error">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     {error}
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name" className="text-gray-300">Full Name</Label>
                   <Input
                     id="name"
                     type="text"
@@ -113,10 +121,11 @@ export default function Signup() {
                     onChange={(e) => setName(e.target.value)}
                     autoComplete="name"
                     data-testid="input-name"
+                    className="bg-black/50 border-cyan-500/20 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-cyan-500/20"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="email">Work Email</Label>
+                  <Label htmlFor="email" className="text-gray-300">Work Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -126,10 +135,11 @@ export default function Signup() {
                     required
                     autoComplete="email"
                     data-testid="input-email"
+                    className="bg-black/50 border-cyan-500/20 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-cyan-500/20"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-gray-300">Password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -140,28 +150,31 @@ export default function Signup() {
                     minLength={6}
                     autoComplete="new-password"
                     data-testid="input-password"
+                    className="bg-black/50 border-cyan-500/20 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-cyan-500/20"
                   />
                 </div>
-                <Button
-                  type="submit"
-                  disabled={isPending}
-                  className="w-full"
-                  data-testid="button-signup"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Creating account…
-                    </>
-                  ) : (
-                    "Create Free Account"
-                  )}
-                </Button>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    type="submit"
+                    disabled={isPending}
+                    className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-semibold rounded-lg shadow-lg shadow-cyan-500/30 transition-all"
+                    data-testid="button-signup"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Creating account…
+                      </>
+                    ) : (
+                      "Create Free Account"
+                    )}
+                  </Button>
+                </motion.div>
               </form>
 
-              <div className="mt-4 text-center text-sm text-muted-foreground">
+              <div className="mt-4 text-center text-sm text-gray-400">
                 Already have an account?{" "}
-                <Link href="/login" className="text-primary font-medium hover:underline" data-testid="link-login">
+                <Link href="/login" className="text-cyan-400 font-medium hover:text-cyan-300 transition-colors" data-testid="link-login">
                   Sign in
                 </Link>
               </div>
