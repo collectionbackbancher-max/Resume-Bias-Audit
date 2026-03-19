@@ -104,7 +104,7 @@ export default function Dashboard() {
     High: sortedResumes.filter((r) => r.riskLevel === "High").length,
   };
 
-  const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
