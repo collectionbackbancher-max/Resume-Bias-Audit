@@ -82,6 +82,27 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 - **Image**: Image generation via OpenAI (available but secondary)
 - **Batch**: Batch processing utilities with rate limiting (available but secondary)
 
+## Pricing & Subscription System
+
+### Plans & Limits
+- **Free Plan**: 5 scans/month, single file uploads only, no PDF downloads
+- **Starter Plan** ($9/month): 100 scans/month, bulk uploads (up to 10 files), PDF downloads
+- **Team Plan** ($29/month): 500 scans/month, all Starter features + priority processing
+
+### Backend Implementation
+- **Plan Enforcement**: Checked on every scan before processing (`/api/scan-resume` and `/api/scan-bulk-resumes`)
+- **Scan Limit Tracking**: `scans_used` counter in `users_metadata` table, resets monthly
+- **Bulk Upload Limits**: Free users limited to 1 file, Starter/Team to 10 files per request
+- **PDF Download Restriction**: Free users get 403 error when attempting PDF download via `/api/generate-report/:id`
+- **Plan Endpoints**:
+  - `GET /api/user/plan` — Returns user's current plan, scan usage, and feature flags
+  - `POST /api/user/upgrade` — MVP endpoint for upgrading plan (no payment processing yet)
+
+### Frontend
+- **Pricing Page** (`client/src/pages/Pricing.tsx`): Displays all 3 plans with features, highlights Starter as "Most Popular"
+- **Dashboard Plan Card**: Shows current plan, scans used/remaining with animated progress bar, upgrade button (hidden for Team users)
+- **Feature Flags**: UI shows/hides features based on plan (bulk upload, PDF download buttons)
+
 ## Frontend Design & Styling
 
 ### Landing Page Redesign

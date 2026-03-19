@@ -34,6 +34,86 @@ export async function registerRoutes(
     });
   });
 
+  // ── User plan endpoint ─────────────────────────────────────────────────────
+  app.get("/api/user/plan", isAuthenticated, async (req: any, res) => {
+    try {
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      const limits: Record<string, number> = { free: 5, starter: 100, team: 500 };
+      const limit = limits[userMeta.subscriptionPlan.toLowerCase()] || 5;
+
+      const now = new Date();
+      const lastReset = new Date(userMeta.lastScanReset);
+      let currentScans = userMeta.scansUsed;
+
+      // Reset scans if month changed
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        currentScans = 0;
+        await storage.incrementScanCount(req.user.id, 0); // This resets it
+      }
+
+      res.json({
+        plan: userMeta.subscriptionPlan,
+        scans_used: currentScans,
+        scans_limit: limit,
+        scans_remaining: Math.max(0, limit - currentScans),
+        billing_cycle_start: userMeta.lastScanReset,
+        features: {
+          bulk_upload: userMeta.subscriptionPlan !== "free",
+          max_files_per_batch: userMeta.subscriptionPlan === "free" ? 1 : 10,
+          pdf_download: userMeta.subscriptionPlan !== "free",
+          priority_processing: userMeta.subscriptionPlan === "team",
+        }
+      });
+    } catch (err) {
+      console.error("Error fetching user plan:", err);
+      res.status(500).json({ message: "Failed to fetch plan information" });
+    }
+  });
+
+  // ── Upgrade plan endpoint (for testing/MVP) ────────────────────────────────
+  app.post("/api/user/upgrade", isAuthenticated, async (req: any, res) => {
+    try {
+      const { plan } = req.body;
+      const validPlans = ["free", "starter", "team"];
+      
+      if (!plan || !validPlans.includes(plan.toLowerCase())) {
+        return res.status(400).json({ error: "Invalid plan. Must be one of: free, starter, team" });
+      }
+
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      // Update plan in database (MVP approach - no payment processing)
+      const { db } = await import("./db");
+      const { usersMetadata } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      await db.update(usersMetadata)
+        .set({ subscriptionPlan: plan.toLowerCase() })
+        .where(eq(usersMetadata.userId, req.user.id));
+
+      res.json({
+        message: `Successfully upgraded to ${plan} plan`,
+        plan: plan.toLowerCase(),
+      });
+    } catch (err) {
+      console.error("Error upgrading plan:", err);
+      res.status(500).json({ message: "Failed to upgrade plan" });
+    }
+  });
+
   // ── Debug endpoint: POST /debug-scan ────────────────────────────────────────
   // Returns extraction metadata without running bias analysis or saving to DB.
   // Protected by auth; only available in development.
@@ -118,6 +198,24 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Unauthorized" });
       }
 
+      // Check user plan for PDF download access
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      if (plan === "free") {
+        return res.status(403).json({ 
+          error: "PDF downloads are not available on the Free plan",
+          upgrade_required: true,
+          message: "Upgrade to Starter or Team plan to download PDF reports."
+        });
+      }
+
       const reportData = {
         filename: `Scan_${scanId}`,
         score: scan.biasScore,
@@ -171,17 +269,20 @@ export async function registerRoutes(
       }
 
       const limits: Record<string, number> = {
-        free: 10,
+        free: 5,
         starter: 100,
         team: 500
       };
       
       const plan = userMeta.subscriptionPlan.toLowerCase();
-      const limit = limits[plan] || 10;
+      const limit = limits[plan] || 5;
 
       if (currentScans >= limit) {
         return res.status(403).json({ 
-          message: `Monthly scan limit reached for ${userMeta.subscriptionPlan} plan (${limit} scans).` 
+          error: "Scan limit reached",
+          message: `Monthly scan limit reached for ${userMeta.subscriptionPlan} plan (${limit} scans).`,
+          upgrade_required: true,
+          scans_remaining: 0
         });
       }
 
@@ -410,11 +511,12 @@ export async function registerRoutes(
       }
 
       const plan = userMeta.subscriptionPlan.toLowerCase();
-      const maxFilesPerBatch = plan === "free" ? 1 : plan === "starter" ? 5 : 10;
+      const maxFilesPerBatch = plan === "free" ? 1 : 10; // Free: 1, Starter/Team: 10
       
       if (files.length > maxFilesPerBatch) {
         return res.status(403).json({
           error: `Your ${userMeta.subscriptionPlan} plan allows maximum ${maxFilesPerBatch} file(s) per upload.`,
+          upgrade_required: plan === "free",
           suggestion: `Please upload ${maxFilesPerBatch} file(s) or fewer.`
         });
       }
@@ -426,7 +528,7 @@ export async function registerRoutes(
         currentScans = 0;
       }
 
-      const limits: Record<string, number> = { free: 10, starter: 100, team: 500 };
+      const limits: Record<string, number> = { free: 5, starter: 100, team: 500 };
       const limit = limits[plan] || 10;
       if (currentScans + files.length > limit) {
         return res.status(403).json({

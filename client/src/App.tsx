@@ -13,6 +13,7 @@ import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Upload from "@/pages/Upload";
 import Report from "@/pages/Report";
+import Pricing from "@/pages/Pricing";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/" component={LandingPage} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
+        <Route path="/pricing" component={Pricing} />
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/refund" component={RefundPolicy} />

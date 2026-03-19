@@ -20,6 +20,8 @@ import {
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -55,6 +57,13 @@ export default function Dashboard() {
   const { data: resumes, isLoading, error } = useResumes();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  
+  const { data: planData } = useQuery({
+    queryKey: ["/api/user/plan"],
+    queryFn: () => apiRequest("GET", "/api/user/plan").then((res: any) => res.data),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (isLoading) {
     return (
@@ -119,6 +128,52 @@ export default function Dashboard() {
           </motion.div>
         </Link>
       </motion.div>
+
+      {/* ── Plan Card ── */}
+      {planData && (
+        <motion.div custom={0} variants={fadeUp} initial="hidden" animate="show">
+          <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
+                  <Zap className="h-6 w-6 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white capitalize">{planData.plan} Plan</h3>
+                  <p className="text-sm text-gray-400">
+                    {planData.scans_used} / {planData.scans_limit} scans used this month
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-cyan-400">{planData.scans_remaining}</div>
+                  <div className="text-xs text-gray-500">scans remaining</div>
+                </div>
+                {planData.plan !== "team" && (
+                  <Link href="/pricing">
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button size="sm" className="rounded-lg bg-cyan-500 hover:bg-cyan-600 text-black font-semibold gap-2">
+                        <ArrowRight className="h-4 w-4" /> Upgrade
+                      </Button>
+                    </motion.div>
+                  </Link>
+                )}
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-4 h-2 bg-gray-700/30 rounded-full overflow-hidden border border-gray-600/30">
+              <motion.div
+                className="h-full bg-gradient-to-r from-cyan-400 to-blue-400"
+                initial={{ width: 0 }}
+                animate={{ width: `${(planData.scans_used / planData.scans_limit) * 100}%` }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── Stats cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
