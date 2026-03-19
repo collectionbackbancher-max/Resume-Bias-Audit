@@ -676,11 +676,12 @@ If you're still debating whether diversity is worth the investment, the answer i
 export default function BlogPost() {
   const [match, params] = useRoute("/blog/:slug");
 
-  if (!match) {
+  if (!match || !params) {
     return null;
   }
 
-  const post = blogContent[params!.slug];
+  const slug = params.slug as string;
+  const post = blogContent[slug];
 
   if (!post) {
     return (
@@ -722,26 +723,26 @@ export default function BlogPost() {
           {/* Meta */}
           <div className="flex items-center gap-4 mb-6 text-sm text-gray-400">
             <Badge variant="outline" className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400">
-              {post.category}
+              {post?.category || "Blog"}
             </Badge>
-            <span>{post.readTime}</span>
+            <span>{post?.readTime || "5 min read"}</span>
           </div>
 
           {/* Title */}
-          <h1 className="text-5xl font-display font-black text-white mb-4">{post.title}</h1>
+          <h1 className="text-5xl font-display font-black text-white mb-4">{post?.title || "Article"}</h1>
 
           {/* Author Info */}
           <div className="flex items-center gap-6 py-6 border-t border-b border-cyan-500/20">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-xl">
-                {post.image}
+                {post?.image || "📝"}
               </div>
               <div>
                 <div className="font-semibold text-white flex items-center gap-2">
-                  <User className="h-4 w-4" /> {post.author}
+                  <User className="h-4 w-4" /> {post?.author || "Author"}
                 </div>
                 <div className="text-sm text-gray-400 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> {post.date}
+                  <Calendar className="h-4 w-4" /> {post?.date || "Date"}
                 </div>
               </div>
             </div>
@@ -752,29 +753,33 @@ export default function BlogPost() {
 
           {/* Content */}
           <div className="prose prose-invert max-w-none py-12 text-gray-300">
-            {post.content.split("\n\n").map((paragraph: string, i: number) => {
-              if (paragraph.startsWith("##")) {
+            {post?.content ? (
+              post.content.split("\n\n").map((paragraph: string, i: number) => {
+                if (paragraph.startsWith("##")) {
+                  return (
+                    <h2 key={i} className="text-2xl font-bold text-white mt-8 mb-4">
+                      {paragraph.replace("## ", "")}
+                    </h2>
+                  );
+                }
+                if (paragraph.startsWith("- ")) {
+                  return (
+                    <ul key={i} className="list-disc list-inside space-y-2 mb-4">
+                      {paragraph.split("\n").map((item: string, j: number) => (
+                        <li key={j}>{item.replace("- ", "").trim()}</li>
+                      ))}
+                    </ul>
+                  );
+                }
                 return (
-                  <h2 key={i} className="text-2xl font-bold text-white mt-8 mb-4">
-                    {paragraph.replace("## ", "")}
-                  </h2>
+                  <p key={i} className="mb-4 leading-relaxed">
+                    {paragraph}
+                  </p>
                 );
-              }
-              if (paragraph.startsWith("- ") || paragraph.startsWith("**")) {
-                return (
-                  <ul key={i} className="list-disc list-inside space-y-2 mb-4">
-                    {paragraph.split("\n").map((item: string, j: number) => (
-                      <li key={j}>{item.replace("- ", "").replace(/\*\*/g, "")}</li>
-                    ))}
-                  </ul>
-                );
-              }
-              return (
-                <p key={i} className="mb-4 leading-relaxed">
-                  {paragraph}
-                </p>
-              );
-            })}
+              })
+            ) : (
+              <p>Loading article...</p>
+            )}
           </div>
 
           {/* CTA */}
