@@ -185,6 +185,7 @@ export default function Dashboard() {
             gradient: "from-blue-500/20 to-blue-600/10",
             borderColor: "border-blue-500/30",
             textColor: "text-blue-400",
+            iconBg: "bg-blue-500/20",
             delay: 0,
           },
           {
@@ -195,6 +196,7 @@ export default function Dashboard() {
             gradient: "from-cyan-500/20 to-cyan-600/10",
             borderColor: "border-cyan-500/30",
             textColor: "text-cyan-400",
+            iconBg: "bg-cyan-500/20",
             delay: 1,
           },
           {
@@ -204,6 +206,7 @@ export default function Dashboard() {
             gradient: "from-emerald-500/20 to-emerald-600/10",
             borderColor: "border-emerald-500/30",
             textColor: "text-emerald-400",
+            iconBg: "bg-emerald-500/20",
             delay: 2,
           },
           {
@@ -213,24 +216,28 @@ export default function Dashboard() {
             gradient: "from-red-500/20 to-red-600/10",
             borderColor: "border-red-500/30",
             textColor: "text-red-400",
+            iconBg: "bg-red-500/20",
             delay: 3,
           },
         ].map((stat) => (
           <motion.div key={stat.label} custom={stat.delay} variants={fadeUp} initial="hidden" animate="show">
-            <div className={`bg-gradient-to-br ${stat.gradient} backdrop-blur border ${stat.borderColor} rounded-2xl p-6 hover:shadow-lg hover:shadow-cyan-500/20 transition-all group`}>
+            <motion.div 
+              whileHover={{ y: -8, transition: { duration: 0.2 } }}
+              className={`bg-gradient-to-br ${stat.gradient} backdrop-blur border ${stat.borderColor} rounded-2xl p-6 hover:border-opacity-100 border-opacity-70 transition-all group cursor-default h-full`}
+            >
               <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-lg bg-black/40 group-hover:bg-black/60 transition-colors`}>
+                <div className={`p-3 rounded-lg ${stat.iconBg} group-hover:shadow-lg group-hover:shadow-current/40 transition-all`}>
                   <stat.icon className={`h-5 w-5 ${stat.textColor}`} />
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className={`text-3xl font-display font-bold ${stat.textColor}`}>
                   {stat.value}
                   {stat.suffix && <span className="text-lg text-gray-500 ml-1">{stat.suffix}</span>}
                 </div>
-                <p className="text-sm text-gray-400">{stat.label}</p>
+                <p className="text-sm text-gray-400 font-medium">{stat.label}</p>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         ))}
       </div>
@@ -279,8 +286,8 @@ export default function Dashboard() {
         </div>
 
         {sortedResumes.length === 0 ? (
-          <div className="border-2 border-dashed border-cyan-500/20 rounded-2xl py-16 flex flex-col items-center text-center">
-            <div className="bg-cyan-500/10 p-5 rounded-2xl mb-5 border border-cyan-500/20">
+          <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="border-2 border-dashed border-cyan-500/30 rounded-2xl py-16 flex flex-col items-center text-center bg-gradient-to-br from-cyan-500/5 to-blue-500/5">
+            <div className="bg-cyan-500/20 p-5 rounded-2xl mb-5 border border-cyan-500/30">
               <FileText className="h-12 w-12 text-cyan-400" />
             </div>
             <h3 className="text-xl font-display font-bold text-white mb-2">No audits yet</h3>
@@ -289,23 +296,24 @@ export default function Dashboard() {
             </p>
             <Link href="/upload">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button className="rounded-lg gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold" data-testid="button-first-audit">
+                <Button className="rounded-lg gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold shadow-lg shadow-cyan-500/30" data-testid="button-first-audit">
                   <Plus className="h-5 w-5" /> Start Your First Audit
                 </Button>
               </motion.div>
             </Link>
-          </div>
+          </motion.div>
         ) : (
           <div className="space-y-3">
             {sortedResumes.map((resume, i) => (
-              <motion.div key={resume.id} custom={i} variants={fadeUp} initial="hidden" animate="show">
-                <div
+              <motion.div key={resume.id} custom={i + 5} variants={fadeUp} initial="hidden" animate="show">
+                <motion.div
                   onClick={() => setLocation(`/report/${resume.id}`)}
+                  whileHover={{ x: 8, transition: { duration: 0.2 } }}
                   className="group bg-gradient-to-br from-slate-900/50 to-black hover:from-slate-900/70 hover:to-slate-950 border border-cyan-500/20 hover:border-cyan-500/50 rounded-2xl px-6 py-5 flex items-center justify-between cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/20"
                   data-testid={`card-resume-${resume.id}`}
                 >
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="bg-cyan-500/20 group-hover:bg-cyan-500/30 p-3 rounded-xl transition-colors shrink-0 border border-cyan-500/30">
+                    <div className="bg-cyan-500/20 group-hover:bg-cyan-500/30 p-3 rounded-xl transition-colors shrink-0 border border-cyan-500/30 group-hover:border-cyan-500/50">
                       <FileText className="h-5 w-5 text-cyan-400" />
                     </div>
                     <div className="min-w-0">
@@ -330,7 +338,7 @@ export default function Dashboard() {
                     </div>
                     <ArrowRight className="h-5 w-5 text-gray-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
                   </div>
-                </div>
+                </motion.div>
               </motion.div>
             ))}
           </div>
@@ -339,13 +347,13 @@ export default function Dashboard() {
 
       {/* ── Quick tip ── */}
       {total > 0 && (
-        <motion.div custom={6} variants={fadeUp} initial="hidden" animate="show">
-          <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6 flex gap-4 items-start">
-            <div className="bg-cyan-500/20 p-3 rounded-lg shrink-0 border border-cyan-500/30">
+        <motion.div custom={7} variants={fadeUp} initial="hidden" animate="show">
+          <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6 flex gap-4 items-start hover:shadow-lg hover:shadow-cyan-500/20 transition-all group">
+            <div className="bg-cyan-500/20 group-hover:bg-cyan-500/30 p-3 rounded-lg shrink-0 border border-cyan-500/30 group-hover:border-cyan-500/50 transition-colors">
               <Zap className="h-5 w-5 text-cyan-400" />
             </div>
             <div>
-              <p className="font-semibold text-white mb-1">Pro Tip: Aim for a score above 85</p>
+              <p className="font-semibold text-white mb-2">Pro Tip: Aim for a score above 85</p>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Resumes scoring 85+ show minimal bias indicators. Use the AI suggestions in each report to improve language neutrality and create more inclusive job descriptions.
               </p>
