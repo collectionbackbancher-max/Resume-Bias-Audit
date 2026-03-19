@@ -130,6 +130,7 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 ### Blog Section
 - **Blog Page** (`client/src/pages/Blog.tsx`): Listing of 10 SEO-optimized blog posts with cards, categories, read time, and author info
 - **Blog Post Page** (`client/src/pages/BlogPost.tsx`): Individual post template with full content, metadata, author info, and CTA
+- **Blog Data** (`client/src/data/blogPosts.ts`): Centralized blog content data file (refactored from inline content for better performance)
 - **Posts Include**:
   1. Gender Bias in Hiring
   2. Age Discrimination in Recruiting
