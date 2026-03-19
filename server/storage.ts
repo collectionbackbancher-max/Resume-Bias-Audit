@@ -6,7 +6,7 @@ export interface IStorage {
   getUserScans(userId: string): Promise<Scan[]>;
   getScan(id: number): Promise<Scan | undefined>;
   createScan(scan: InsertScan): Promise<Scan>;
-  updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any): Promise<Scan>;
+  updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any, cleanText?: string, sections?: any): Promise<Scan>;
   getUserMetadata(userId: string): Promise<UserMetadata | undefined>;
   createUserMetadata(user: { userId: string, email: string }): Promise<UserMetadata>;
   incrementScanCount(userId: string): Promise<void>;
@@ -33,9 +33,9 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any): Promise<Scan> {
+  async updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any, cleanText?: string, sections?: any): Promise<Scan> {
     const [updated] = await db.update(scans)
-      .set({ biasScore, riskLevel, flags })
+      .set({ biasScore, riskLevel, flags, ...(cleanText !== undefined ? { cleanText } : {}), ...(sections !== undefined ? { sections } : {}) })
       .where(eq(scans.id, id))
       .returning();
     return updated;
@@ -74,8 +74,8 @@ export class DatabaseStorage implements IStorage {
   async getUserResumes(userId: string) { return this.getUserScans(userId); }
   async getResume(id: number) { return this.getScan(id); }
   async createResume(resume: InsertScan) { return this.createScan(resume); }
-  async updateResumeAnalysis(id: number, score: number, riskLevel: string, analysis: any) {
-    return this.updateScanAnalysis(id, score, riskLevel, analysis);
+  async updateResumeAnalysis(id: number, score: number, riskLevel: string, analysis: any, cleanText?: string, sections?: any) {
+    return this.updateScanAnalysis(id, score, riskLevel, analysis, cleanText, sections);
   }
 }
 

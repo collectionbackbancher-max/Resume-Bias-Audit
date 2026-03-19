@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import multer from "multer";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
 import { extractResumeText, ExtractionError } from "./extract";
+import { cleanOCRText, parseResumeSections } from "./nlp_pipeline";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -217,21 +218,30 @@ export async function registerRoutes(
         });
       }
 
-      const { text, length: textLength, source: extractionSource } = extraction;
+      const { text: rawText, length: textLength, source: extractionSource } = extraction;
       console.log(
         `[scan] Extraction summary — source: ${extractionSource} | length: ${textLength} chars | OCR used: ${extractionSource === "ocr" ? "YES" : "NO"}`
       );
 
-      const biasResult = analyzeBias(text);
-
-      // Store in database as a scan entry
+      // ── STEP 1: Store raw text immediately ──────────────────────────────────
       const scan = await storage.createScan({
         userId: req.user.claims.sub,
         filename: req.file.originalname,
-        resumeText: text,
+        resumeText: rawText,
       });
 
-      // Update with scan results
+      // ── STEP 2: Clean text (only for OCR output) + parse sections (parallel) ─
+      const t0 = Date.now();
+      const [cleanText, sections] = await Promise.all([
+        extractionSource === "ocr" ? cleanOCRText(rawText) : Promise.resolve(rawText),
+        parseResumeSections(rawText),
+      ]);
+      console.log(`[scan] NLP pipeline done in ${Date.now() - t0}ms`);
+
+      // ── STEP 3: Advanced bias analysis with section context ─────────────────
+      const biasResult = analyzeBias(cleanText, sections);
+
+      // ── STEP 4: Persist full analysis ────────────────────────────────────────
       const updated = await storage.updateScanAnalysis(
         scan.id,
         biasResult.score,
@@ -239,20 +249,21 @@ export async function registerRoutes(
         {
           summary: biasResult.explanation,
           biasFlags: biasResult.flags.map(f => ({
-            category: "General",
-            description: f,
-            severity: biasResult.riskLevel as "Low" | "Moderate" | "High",
-            suggestion: "Consider neutralizing this language."
+            phrase: f.phrase,
+            category: f.category,
+            context: f.context,
+            severity: f.severity,
+            description: f.description,
+            suggestion: f.suggestion,
+            section: f.section,
           })),
-          scores: {
-            language: biasResult.score,
-            age: 100,
-            name: 100
-          }
-        }
+          scores: biasResult.scores,
+        },
+        cleanText !== rawText ? cleanText : undefined,
+        sections,
       );
 
-      // Update user scan count
+      // ── STEP 5: Update usage counter ─────────────────────────────────────────
       try {
         await storage.incrementScanCount(req.user.claims.sub);
       } catch (e) {
@@ -260,13 +271,16 @@ export async function registerRoutes(
       }
 
       res.json({
-        ...biasResult,
+        score: biasResult.score,
+        riskLevel: biasResult.riskLevel,
         scan_id: updated.id,
         resumeId: updated.id,
+        sections,
         extraction: {
-          text: text.slice(0, 200) + (text.length > 200 ? "…" : ""), // preview only
+          text: rawText.slice(0, 200) + (rawText.length > 200 ? "…" : ""),
           length: textLength,
           source: extractionSource,
+          ocrCleaned: extractionSource === "ocr" && cleanText !== rawText,
         },
       });
     } catch (err) {
@@ -282,6 +296,8 @@ export async function registerRoutes(
       score: scan.biasScore ?? null,
       analysis: scan.flags ?? null,
       filename: scan.filename || "resume",
+      cleanText: scan.cleanText ?? null,
+      sections: scan.sections ?? null,
     };
   }
 

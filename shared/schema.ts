@@ -21,6 +21,8 @@ export const scans = pgTable("scans", {
   userId: varchar("user_id").notNull().references(() => authUsers.id),
   filename: text("filename").default("resume").notNull(),
   resumeText: text("resume_text").notNull(),
+  cleanText: text("clean_text"),
+  sections: json("sections").$type<any>(),
   biasScore: integer("bias_score"),
   riskLevel: text("risk_level"),
   flags: json("flags").$type<any>(),
