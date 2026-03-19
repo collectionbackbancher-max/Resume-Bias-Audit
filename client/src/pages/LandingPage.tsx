@@ -14,12 +14,18 @@ import {
   TrendingUp,
   AlertTriangle,
   Brain,
+  Zap as ZapIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
   show: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.1 } }),
+};
+
+const floatingAnimation = {
+  y: [0, -20, 0],
+  transition: { duration: 4, repeat: Infinity, ease: "easeInOut" },
 };
 
 export default function LandingPage() {
@@ -29,9 +35,9 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 w-full border-b border-cyan-500/20 bg-black/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5 font-display font-bold text-xl">
-            <div className="bg-cyan-500/20 p-2 rounded-xl">
+            <motion.div className="bg-cyan-500/20 p-2 rounded-xl" whileHover={{ scale: 1.1, rotate: 5 }}>
               <ShieldCheck className="h-5 w-5 text-cyan-400" />
-            </div>
+            </motion.div>
             <span className="text-white">BiasAuditor<span className="text-cyan-400">.ai</span></span>
           </div>
           <div className="flex items-center gap-3">
@@ -39,7 +45,7 @@ export default function LandingPage() {
               <Button variant="ghost" size="sm" className="text-white hover:bg-cyan-500/10">Sign in</Button>
             </Link>
             <Link href="/signup">
-              <Button size="sm" className="rounded-full px-5 shadow-md shadow-cyan-500/30 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
+              <Button size="sm" className="rounded-lg px-5 shadow-md shadow-cyan-500/30 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
                 Get Started Free
               </Button>
             </Link>
@@ -48,62 +54,137 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-black via-black to-slate-950">
-        {/* Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+      <section className="relative overflow-hidden bg-gradient-to-b from-black via-slate-950 to-black pt-20 pb-40">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-10 right-20 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl"
+            animate={{ x: [0, 100, 0], y: [0, 50, 0] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute bottom-20 left-10 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl"
+            animate={{ x: [0, -80, 0], y: [0, -60, 0] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          />
+          <div className="absolute top-1/2 right-1/4 w-2 h-2 bg-cyan-400 rounded-full opacity-30" />
+          <motion.div
+            className="absolute top-1/3 right-1/3 w-1 h-1 bg-cyan-300 rounded-full"
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+        </div>
 
-        <div className="container mx-auto px-6 pt-24 pb-32">
-          <div className="max-w-3xl">
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="max-w-4xl">
             <motion.div variants={fadeUp} initial="hidden" animate="show">
-              <Badge className="mb-6 rounded-full px-4 py-1.5 text-sm font-medium bg-cyan-500/20 text-cyan-300 border-cyan-500/40 gap-1.5 w-fit">
-                <Sparkles className="h-3.5 w-3.5" /> AI-Powered Bias Detection
-              </Badge>
-              <h1 className="text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-8 text-white">
-                Hire for talent,<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+              <motion.div
+                className="mb-8 inline-block"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Badge className="rounded-lg px-5 py-2 text-sm font-medium bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/40 gap-2">
+                  <Sparkles className="h-4 w-4" /> AI-Powered Bias Detection
+                </Badge>
+              </motion.div>
+
+              <motion.h1
+                className="text-7xl lg:text-8xl font-display font-black tracking-tighter leading-[1] mb-8 text-white bg-gradient-to-br from-white via-cyan-100 to-cyan-400 bg-clip-text text-transparent"
+                variants={fadeUp}
+                custom={0.1}
+              >
+                Hire for talent,
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300 animate-pulse">
                   not bias.
                 </span>
-              </h1>
-              <p className="text-xl text-gray-300 mb-12 max-w-2xl leading-relaxed">
-                Detect unconscious bias in resumes instantly. Our AI-powered platform analyzes gender-coded language, age proxies, and hidden bias markers to help you build fairer hiring processes.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+              </motion.h1>
+
+              <motion.p
+                className="text-xl lg:text-2xl text-gray-300 mb-12 max-w-3xl leading-relaxed font-light"
+                variants={fadeUp}
+                custom={0.2}
+              >
+                Detect unconscious bias in resumes instantly. Our AI-powered platform analyzes gender-coded language, age proxies, and hidden bias markers to help you build <span className="text-cyan-300 font-semibold">fairer, smarter hiring</span>.
+              </motion.p>
+
+              <motion.div
+                className="flex flex-col sm:flex-row gap-4 mb-16"
+                variants={fadeUp}
+                custom={0.3}
+              >
                 <Link href="/signup">
-                  <Button size="lg" className="h-14 px-8 rounded-lg text-base shadow-lg shadow-cyan-500/40 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
-                    Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button size="lg" className="h-14 px-8 rounded-lg text-base shadow-xl shadow-cyan-500/50 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-black font-bold text-lg">
+                      Start Auditing <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </motion.div>
                 </Link>
-                <Button variant="outline" size="lg" className="h-14 px-8 rounded-lg text-base border-cyan-500/40 text-white hover:bg-cyan-500/10 font-medium">
-                  Learn More
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-8 text-sm text-gray-400">
-                {["No credit card needed", "Works on PDF & DOCX", "Results in seconds"].map((t) => (
-                  <span key={t} className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-cyan-400 shrink-0" /> {t}
-                  </span>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-14 px-8 rounded-lg text-base border-2 border-cyan-500/50 text-white hover:bg-cyan-500/20 font-semibold bg-transparent"
+                  >
+                    Watch Demo
+                  </Button>
+                </motion.div>
+              </motion.div>
+
+              <motion.div
+                className="flex flex-wrap gap-6 md:gap-10"
+                variants={fadeUp}
+                custom={0.4}
+              >
+                {[
+                  { icon: CheckCircle2, text: "No credit card needed" },
+                  { icon: Zap, text: "Results in seconds" },
+                  { icon: FileText, text: "Works on PDF & DOCX" },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    className="flex items-center gap-3"
+                    whileHover={{ x: 8 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <div className="p-2 rounded-lg bg-cyan-500/20">
+                      <item.icon className="h-5 w-5 text-cyan-400" />
+                    </div>
+                    <span className="text-gray-400 font-medium">{item.text}</span>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
       </section>
 
       {/* ── Stats bar ── */}
-      <section className="border-y border-cyan-500/20 bg-slate-950/50">
-        <div className="container mx-auto px-6 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <section className="border-y border-cyan-500/20 bg-gradient-to-r from-slate-950 via-black to-slate-950 py-12">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { value: "10k+", label: "Resumes Audited" },
-              { value: "94%", label: "Accuracy Rate" },
-              { value: "3s", label: "Average Scan Time" },
-              { value: "12", label: "Bias Categories" },
+              { value: "10k+", label: "Resumes Analyzed" },
+              { value: "94%", label: "Accuracy" },
+              { value: "150+", label: "Companies Trust Us" },
+              { value: "2.1s", label: "Avg Scan Time" },
             ].map((stat, i) => (
-              <motion.div key={stat.label} custom={i} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
-                <div className="text-3xl font-display font-bold text-cyan-400">{stat.value}</div>
-                <div className="text-sm text-gray-400 mt-1">{stat.label}</div>
+              <motion.div
+                key={stat.label}
+                custom={i}
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="text-center group"
+              >
+                <motion.div
+                  className="text-4xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2"
+                  whileHover={{ scale: 1.1 }}
+                >
+                  {stat.value}
+                </motion.div>
+                <div className="text-sm text-gray-500 group-hover:text-gray-400 transition-colors">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -111,71 +192,108 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section className="py-24 container mx-auto px-6">
-        <motion.div className="text-center max-w-2xl mx-auto mb-16" variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
-          <Badge className="mb-4 rounded-full px-4 py-1 bg-blue-500/20 text-blue-300 border-blue-500/40">How It Works</Badge>
-          <h2 className="text-4xl font-display font-bold mb-4 text-white">Bias-free hiring starts here</h2>
-          <p className="text-gray-400 text-lg leading-relaxed">
-            Our multi-layer analysis catches what human reviewers miss — fast.
+      <section className="py-32 container mx-auto px-6">
+        <motion.div
+          className="text-center max-w-3xl mx-auto mb-20"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+        >
+          <h2 className="text-5xl lg:text-6xl font-display font-black mb-6 text-white">
+            How <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">BiasAuditor</span> works
+          </h2>
+          <p className="text-xl text-gray-400">
+            A three-step process to detect and eliminate bias from your hiring process
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8">
           {[
             {
               icon: FileText,
-              color: "bg-blue-500/20 text-blue-400",
-              title: "Upload & Extract",
-              desc: "Drop a PDF or DOCX. We extract and clean the text automatically, preserving structure for accurate analysis.",
+              number: "01",
+              title: "Upload Resume",
+              desc: "Drop a PDF or DOCX. We instantly extract and analyze every word.",
+              color: "from-blue-500 to-cyan-500",
             },
             {
-              icon: Target,
-              color: "bg-cyan-500/20 text-cyan-400",
-              title: "AI Bias Scan",
-              desc: "Our engine checks for gender-coded language, age proxies, graduation year signals, and 12 other bias categories.",
+              icon: Brain,
+              number: "02",
+              title: "AI Analysis",
+              desc: "Our AI detects gender-coded language, age signals, and bias patterns.",
+              color: "from-cyan-500 to-blue-500",
             },
             {
               icon: TrendingUp,
-              color: "bg-emerald-500/20 text-emerald-400",
-              title: "Score & Improve",
-              desc: "Get a 0–100 fairness score, risk classification, and AI-written inclusive rewrites you can use immediately.",
+              number: "03",
+              title: "Get Score",
+              desc: "Receive a fairness score and AI suggestions for inclusive rewrites.",
+              color: "from-blue-500 to-purple-500",
             },
           ].map((feature, i) => (
-            <motion.div key={i} custom={i} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
-              className="group bg-slate-900 border border-cyan-500/20 rounded-2xl p-8 hover:shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 transition-all duration-300"
+            <motion.div
+              key={i}
+              custom={i}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              whileHover={{ y: -12, transition: { duration: 0.3 } }}
+              className="group relative"
             >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 ${feature.color}`}>
-                <feature.icon className="h-6 w-6" />
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative bg-gradient-to-br from-slate-900/50 to-black border border-cyan-500/20 rounded-2xl p-8 h-full hover:border-cyan-500/50 transition-colors">
+                <div className="mb-6 flex items-start justify-between">
+                  <div className={`p-3 rounded-xl bg-gradient-to-br ${feature.color} shadow-lg`}>
+                    <feature.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-5xl font-display font-black text-cyan-500/20">{feature.number}</span>
+                </div>
+                <h3 className="text-2xl font-display font-bold mb-3 text-white">{feature.title}</h3>
+                <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
               </div>
-              <h3 className="text-xl font-display font-bold mb-3 text-white">{feature.title}</h3>
-              <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
       {/* ── What we detect ── */}
-      <section className="py-20 bg-slate-950/50 border-y border-cyan-500/20">
+      <section className="py-24 bg-gradient-to-b from-transparent via-slate-950/50 to-black border-y border-cyan-500/20">
         <div className="container mx-auto px-6">
-          <motion.div className="text-center mb-14" variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
-            <h2 className="text-3xl font-display font-bold mb-3 text-white">What BiasAuditor detects</h2>
-            <p className="text-gray-400">Comprehensive coverage across multiple bias dimensions</p>
+          <motion.div
+            className="text-center mb-16"
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+          >
+            <h2 className="text-4xl lg:text-5xl font-display font-black mb-4 text-white">Bias Categories Detected</h2>
+            <p className="text-lg text-gray-400">Our AI catches subtle patterns humans miss</p>
           </motion.div>
+
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: Users, label: "Gender-coded language", desc: "Words that favor one gender" },
-              { icon: BarChart3, label: "Age proxies", desc: "Graduation years, 'digital native'" },
-              { icon: AlertTriangle, label: "Exclusionary language", desc: "Culture fit dog-whistles" },
-              { icon: ShieldCheck, label: "Risk classification", desc: "Low / Moderate / High risk" },
+              { icon: Users, label: "Gender Coding", desc: "Masculine & feminine language" },
+              { icon: BarChart3, label: "Age Proxies", desc: "Graduation dates, 'digital native'" },
+              { icon: AlertTriangle, label: "Exclusionary Terms", desc: "Gatekeeping language" },
+              { icon: ShieldCheck, label: "Risk Scoring", desc: "Low / Moderate / High risk" },
             ].map((item, i) => (
-              <motion.div key={i} custom={i} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
-                className="bg-slate-900 border border-cyan-500/20 rounded-2xl p-6 text-center hover:border-cyan-500/50 transition-colors"
+              <motion.div
+                key={i}
+                custom={i}
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.05 }}
+                className="bg-gradient-to-br from-slate-900/70 to-black border border-cyan-500/20 rounded-xl p-6 text-center hover:border-cyan-500/50 cursor-pointer transition-all group"
               >
-                <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <item.icon className="h-5 w-5 text-cyan-400" />
+                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:from-cyan-500/50 group-hover:to-blue-500/50 transition-all">
+                  <item.icon className="h-6 w-6 text-cyan-400" />
                 </div>
-                <h4 className="font-semibold mb-1 text-sm text-white">{item.label}</h4>
-                <p className="text-xs text-gray-500">{item.desc}</p>
+                <h4 className="font-bold mb-2 text-white group-hover:text-cyan-300 transition-colors">{item.label}</h4>
+                <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">{item.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -183,31 +301,48 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-24 container mx-auto px-6">
-        <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
-          className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-cyan-600 via-cyan-500 to-blue-600 p-12 text-center"
+      <section className="py-32 container mx-auto px-6">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-cyan-600 via-cyan-500 to-blue-600 p-16 text-center group"
         >
-          <div className="absolute inset-0 bg-black/20" />
+          <motion.div
+            className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity"
+            animate={{ opacity: [0.1, 0.15, 0.1] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
           <div className="relative z-10">
-            <ShieldCheck className="h-12 w-12 mx-auto mb-6 opacity-90 text-white" />
-            <h2 className="text-4xl font-display font-bold mb-4 text-white">Ready for fairer hiring?</h2>
-            <p className="text-white/90 text-lg mb-8 max-w-md mx-auto">
-              Join hiring teams who use BiasAuditor to build diverse, high-performing teams — one resume at a time.
+            <motion.div
+              animate={floatingAnimation}
+              className="mb-8"
+            >
+              <Sparkles className="h-14 w-14 mx-auto opacity-90 text-white" />
+            </motion.div>
+            <h2 className="text-5xl lg:text-6xl font-display font-black mb-6 text-white">
+              Ready for fairer hiring?
+            </h2>
+            <p className="text-white/90 text-xl mb-10 max-w-xl mx-auto leading-relaxed">
+              Join 150+ companies building diverse, high-performing teams with BiasAuditor
             </p>
             <Link href="/signup">
-              <Button size="lg" className="h-12 px-8 rounded-full text-base font-semibold shadow-lg bg-black hover:bg-slate-900 text-white">
-                Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="lg" className="h-14 px-10 rounded-lg text-base font-bold shadow-xl bg-black hover:bg-slate-900 text-white">
+                  Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </motion.div>
             </Link>
           </div>
         </motion.div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-cyan-500/20 py-8 bg-black">
-        <div className="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-500">
-          <div className="flex items-center gap-2 font-display font-semibold text-white">
-            <ShieldCheck className="h-4 w-4 text-cyan-400" />
+      <footer className="border-t border-cyan-500/20 py-12 bg-black">
+        <div className="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-500">
+          <div className="flex items-center gap-2 font-display font-bold text-white">
+            <ShieldCheck className="h-5 w-5 text-cyan-400" />
             BiasAuditor<span className="text-cyan-400">.ai</span>
           </div>
           <p>© {new Date().getFullYear()} BiasAuditor.ai — Fairer hiring for everyone.</p>
