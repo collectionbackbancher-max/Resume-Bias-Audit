@@ -8,9 +8,17 @@ import { Loader2 } from "lucide-react";
 
 // Pages
 import LandingPage from "@/pages/LandingPage";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Upload from "@/pages/Upload";
 import Report from "@/pages/Report";
+import Pricing from "@/pages/Pricing";
+import Blog from "@/pages/Blog";
+import BlogPost from "@/pages/BlogPost";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import RefundPolicy from "@/pages/RefundPolicy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,7 +36,15 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={LandingPage} />
-        <Route component={LandingPage} /> {/* Catch-all for logged out users redirect to landing */}
+        <Route path="/login" component={Login} />
+        <Route path="/signup" component={Signup} />
+        <Route path="/pricing" component={Pricing} />
+        <Route path="/blog" component={Blog} />
+        <Route path="/blog/:slug" component={BlogPost} />
+        <Route path="/terms" component={TermsOfService} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/refund" component={RefundPolicy} />
+        <Route component={LandingPage} />
       </Switch>
     );
   }
@@ -39,6 +55,8 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/upload" component={Upload} />
         <Route path="/report/:id" component={Report} />
+        <Route path="/login" component={Dashboard} />
+        <Route path="/signup" component={Dashboard} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

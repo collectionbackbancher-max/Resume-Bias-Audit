@@ -6,10 +6,11 @@ export interface IStorage {
   getUserScans(userId: string): Promise<Scan[]>;
   getScan(id: number): Promise<Scan | undefined>;
   createScan(scan: InsertScan): Promise<Scan>;
-  updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any): Promise<Scan>;
+  createScans(scans: InsertScan[]): Promise<Scan[]>;
+  updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any, cleanText?: string, sections?: any): Promise<Scan>;
   getUserMetadata(userId: string): Promise<UserMetadata | undefined>;
   createUserMetadata(user: { userId: string, email: string }): Promise<UserMetadata>;
-  incrementScanCount(userId: string): Promise<void>;
+  incrementScanCount(userId: string, count: number): Promise<void>;
   
   // Compatibility methods
   getUserResumes(userId: string): Promise<Scan[]>;
@@ -33,9 +34,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any): Promise<Scan> {
+  async createScans(scanList: InsertScan[]): Promise<Scan[]> {
+    if (scanList.length === 0) return [];
+    return await db.insert(scans).values(scanList).returning();
+  }
+
+  async updateScanAnalysis(id: number, biasScore: number, riskLevel: string, flags: any, cleanText?: string, sections?: any): Promise<Scan> {
     const [updated] = await db.update(scans)
-      .set({ biasScore, riskLevel, flags })
+      .set({ biasScore, riskLevel, flags, ...(cleanText !== undefined ? { cleanText } : {}), ...(sections !== undefined ? { sections } : {}) })
       .where(eq(scans.id, id))
       .returning();
     return updated;
@@ -51,7 +57,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async incrementScanCount(userId: string): Promise<void> {
+  async incrementScanCount(userId: string, count: number = 1): Promise<void> {
     const user = await this.getUserMetadata(userId);
     if (user) {
       const now = new Date();
@@ -60,11 +66,11 @@ export class DatabaseStorage implements IStorage {
       // Check if it's a new month
       if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
         await db.update(usersMetadata)
-          .set({ scansUsed: 1, lastScanReset: now })
+          .set({ scansUsed: count, lastScanReset: now })
           .where(eq(usersMetadata.userId, userId));
       } else {
         await db.update(usersMetadata)
-          .set({ scansUsed: user.scansUsed + 1 })
+          .set({ scansUsed: user.scansUsed + count })
           .where(eq(usersMetadata.userId, userId));
       }
     }
@@ -74,8 +80,8 @@ export class DatabaseStorage implements IStorage {
   async getUserResumes(userId: string) { return this.getUserScans(userId); }
   async getResume(id: number) { return this.getScan(id); }
   async createResume(resume: InsertScan) { return this.createScan(resume); }
-  async updateResumeAnalysis(id: number, score: number, riskLevel: string, analysis: any) {
-    return this.updateScanAnalysis(id, score, riskLevel, analysis);
+  async updateResumeAnalysis(id: number, score: number, riskLevel: string, analysis: any, cleanText?: string, sections?: any) {
+    return this.updateScanAnalysis(id, score, riskLevel, analysis, cleanText, sections);
   }
 }
 

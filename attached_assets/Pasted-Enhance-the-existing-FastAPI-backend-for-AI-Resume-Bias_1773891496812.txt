@@ -1,0 +1,144 @@
+Enhance the existing FastAPI backend for "AI Resume Bias Auditor" with advanced NLP processing.
+
+Add a complete pipeline after text extraction:
+
+========================
+STEP 1: CLEAN OCR TEXT
+========================
+
+Create a function:
+clean_resume_text(raw_text: str)
+
+Use OpenAI API to:
+- Fix OCR errors (broken words, spacing issues)
+- Normalize formatting
+- Remove noise (headers, page numbers, random symbols)
+- Keep professional resume structure
+
+Prompt:
+"Clean and normalize this resume text extracted via OCR. Fix broken words, remove noise, and preserve meaningful content."
+
+Return clean_text
+
+========================
+STEP 2: STRUCTURE RESUME
+========================
+
+Create function:
+parse_resume_sections(clean_text: str)
+
+Use OpenAI OR rule-based parsing to extract:
+
+{
+  "name": "",
+  "skills": [],
+  "experience": [],
+  "education": [],
+  "projects": [],
+  "other": []
+}
+
+Instructions:
+- Detect headings like Skills, Experience, Education
+- Group bullet points properly
+- Handle messy formatting
+
+Return structured JSON
+
+========================
+STEP 3: ADVANCED BIAS DETECTION
+========================
+
+Upgrade bias_engine.py:
+
+Add:
+
+1. Context-aware detection
+   - Detect gender-coded phrases in context
+   - Example:
+     "aggressive leader" → flag
+     "aggressive sales growth" → lower risk
+
+2. Expanded keyword lists:
+   - Masculine-coded: aggressive, dominant, competitive, fearless
+   - Feminine-coded: supportive, nurturing, empathetic, collaborative
+
+3. Section-aware scoring:
+   - Weight higher if bias appears in:
+       - Experience
+       - Summary
+   - Lower weight in skills
+
+4. Frequency-based scoring:
+   - Count occurrences
+   - Normalize score (0–100)
+
+5. Intersection signals:
+   - Age + leadership
+   - Language + senior roles
+
+Return:
+{
+  "score": number,
+  "risk_level": "Low | Moderate | High",
+  "flags": [
+    {
+      "phrase": "",
+      "category": "gender | age | language",
+      "context": "",
+      "severity": "low | medium | high"
+    }
+  ],
+  "explanation": ""
+}
+
+========================
+STEP 4: FULL PIPELINE IN API
+========================
+
+Update POST /scan-resume:
+
+Pipeline:
+1. Extract text (pdfplumber or OCR fallback)
+2. Clean text using clean_resume_text()
+3. Parse into structured sections
+4. Run advanced bias detection
+
+Return response:
+
+{
+  "raw_text": "...",
+  "clean_text": "...",
+  "sections": {...},
+  "bias_analysis": {...}
+}
+
+========================
+STEP 5: PERFORMANCE OPTIMIZATION
+========================
+
+- Cache cleaned text to avoid repeated OpenAI calls
+- Add timeout handling for API calls
+- Log processing time for each step
+
+========================
+STEP 6: FRONTEND UPDATE
+========================
+
+Update results page:
+
+Display:
+- Cleaned resume preview
+- Structured sections (Skills, Experience, etc.)
+- Highlight biased phrases inline
+- Show severity color coding
+- Add toggle: Raw vs Cleaned text
+
+========================
+IMPORTANT NOTES
+========================
+
+- Do NOT infer protected attributes (gender, ethnicity)
+- Only flag bias indicators
+- Add explanation for each flagged phrase
+- Keep system explainable and transparent

@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "glibcLocales"]
+packages = ["freetype", "glibcLocales", "tesseract", "poppler"]
 
 [[ports]]
 localPort = 5000
@@ -45,3 +45,11 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_openai_ai_integrations:2.0.0"]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://ajlyemjgrwooisevyxse.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbHllbWpncndvb2lzZXZ5eHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NzQxNzMsImV4cCI6MjA4OTQ1MDE3M30.80Aw1xntcURyKMRjdVD1O3au1hyVEQlqcmHc9oHfH1U"
+SUPABASE_URL = "https://ajlyemjgrwooisevyxse.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbHllbWpncndvb2lzZXZ5eHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NzQxNzMsImV4cCI6MjA4OTQ1MDE3M30.80Aw1xntcURyKMRjdVD1O3au1hyVEQlqcmHc9oHfH1U"

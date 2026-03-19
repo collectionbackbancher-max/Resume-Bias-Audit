@@ -3,14 +3,12 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { isAuthenticated } from "./supabaseAuth";
 import OpenAI from "openai";
 import multer from "multer";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
-import mammoth from "mammoth";
-import { analyzeBias } from "./bias_engine";
+import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
+import { extractResumeText, ExtractionError } from "./extract";
+import { cleanOCRText, parseResumeSections } from "./nlp_pipeline";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -27,9 +25,165 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // ... existing setup
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // ── Auth user endpoint ─────────────────────────────────────────────────────
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+    res.json({
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name,
+    });
+  });
+
+  // ── User plan endpoint ─────────────────────────────────────────────────────
+  app.get("/api/user/plan", isAuthenticated, async (req: any, res) => {
+    try {
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      const limits: Record<string, number> = { free: 5, starter: 100, team: 500 };
+      const limit = limits[userMeta.subscriptionPlan.toLowerCase()] || 5;
+
+      const now = new Date();
+      const lastReset = new Date(userMeta.lastScanReset);
+      let currentScans = userMeta.scansUsed;
+
+      // Reset scans if month changed
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        currentScans = 0;
+        await storage.incrementScanCount(req.user.id, 0); // This resets it
+      }
+
+      res.json({
+        plan: userMeta.subscriptionPlan,
+        scans_used: currentScans,
+        scans_limit: limit,
+        scans_remaining: Math.max(0, limit - currentScans),
+        billing_cycle_start: userMeta.lastScanReset,
+        features: {
+          bulk_upload: userMeta.subscriptionPlan !== "free",
+          max_files_per_batch: userMeta.subscriptionPlan === "free" ? 1 : 10,
+          pdf_download: userMeta.subscriptionPlan !== "free",
+          priority_processing: userMeta.subscriptionPlan === "team",
+        }
+      });
+    } catch (err) {
+      console.error("Error fetching user plan:", err);
+      res.status(500).json({ message: "Failed to fetch plan information" });
+    }
+  });
+
+  // ── Upgrade plan endpoint (for testing/MVP) ────────────────────────────────
+  app.post("/api/user/upgrade", isAuthenticated, async (req: any, res) => {
+    try {
+      const { plan } = req.body;
+      const validPlans = ["free", "starter", "team"];
+      
+      if (!plan || !validPlans.includes(plan.toLowerCase())) {
+        return res.status(400).json({ error: "Invalid plan. Must be one of: free, starter, team" });
+      }
+
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      // Update plan in database (MVP approach - no payment processing)
+      const { db } = await import("./db");
+      const { usersMetadata } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      await db.update(usersMetadata)
+        .set({ subscriptionPlan: plan.toLowerCase() })
+        .where(eq(usersMetadata.userId, req.user.id));
+
+      res.json({
+        message: `Successfully upgraded to ${plan} plan`,
+        plan: plan.toLowerCase(),
+      });
+    } catch (err) {
+      console.error("Error upgrading plan:", err);
+      res.status(500).json({ message: "Failed to upgrade plan" });
+    }
+  });
+
+  // ── Debug endpoint: POST /debug-scan ────────────────────────────────────────
+  // Returns extraction metadata without running bias analysis or saving to DB.
+  // Protected by auth; only available in development.
+  app.post("/debug-scan", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    const start = Date.now();
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded. Send a multipart/form-data request with a 'file' field." });
+    }
+
+    const { originalname, mimetype, size, buffer } = req.file;
+
+    console.log(`[debug-scan] Received: "${originalname}" | MIME: ${mimetype} | size: ${size} bytes`);
+
+    let extractionMethod = "unknown";
+    let textPreview = "";
+    let fullLength = 0;
+    let extractionError: string | null = null;
+
+    try {
+      const result = await extractResumeText(buffer, originalname, mimetype);
+      extractionMethod = result.source;
+      fullLength = result.length;
+      textPreview = result.text.slice(0, 300) + (result.text.length > 300 ? "…" : "");
+    } catch (err: any) {
+      // Handle structured ExtractionError
+      if (err instanceof ExtractionError) {
+        const elapsed = Date.now() - start;
+        console.warn(`[debug-scan] Extraction error: ${err.error}`);
+        return res.status(400).json({
+          file: { name: originalname, type: mimetype, size_bytes: size },
+          error: err.error,
+          suggestion: err.suggestion,
+          elapsed_ms: elapsed,
+        });
+      }
+      // Fallback for other errors
+      extractionError = err.message;
+      console.warn(`[debug-scan] Extraction failed: ${err.message}`);
+    }
+
+    const elapsed = Date.now() - start;
+    console.log(`[debug-scan] Done in ${elapsed}ms — method: ${extractionMethod} | length: ${fullLength}`);
+
+    // If there was a non-structured error, return it in the success response
+    if (extractionError) {
+      return res.status(400).json({
+        file: { name: originalname, type: mimetype, size_bytes: size },
+        error: extractionError,
+        suggestion: "Try uploading a different file or contact support.",
+        elapsed_ms: elapsed,
+      });
+    }
+
+    return res.json({
+      file: {
+        name: originalname,
+        type: mimetype,
+        size_bytes: size,
+      },
+      extraction: {
+        method: extractionMethod,
+        text_preview: textPreview,
+        full_length: fullLength,
+        ocr_used: extractionMethod === "ocr",
+        error: null,
+      },
+      elapsed_ms: elapsed,
+    });
+  });
 
   app.get("/api/generate-report/:id", isAuthenticated, async (req: any, res) => {
     try {
@@ -40,8 +194,26 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Scan not found" });
       }
 
-      if (scan.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Check user plan for PDF download access
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ 
+          userId: req.user.id, 
+          email: req.user.email || "unknown@example.com" 
+        });
+      }
+
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      if (plan === "free") {
+        return res.status(403).json({ 
+          error: "PDF downloads are not available on the Free plan",
+          upgrade_required: true,
+          message: "Upgrade to Starter or Team plan to download PDF reports."
+        });
       }
 
       const reportData = {
@@ -77,13 +249,13 @@ export async function registerRoutes(
 
   app.post("/api/scan-resume", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       let userMeta = await storage.getUserMetadata(userId);
       
       if (!userMeta) {
         userMeta = await storage.createUserMetadata({ 
           userId, 
-          email: req.user.claims.email || "unknown@example.com" 
+          email: req.user.email || "unknown@example.com" 
         });
       }
 
@@ -97,52 +269,85 @@ export async function registerRoutes(
       }
 
       const limits: Record<string, number> = {
-        free: 10,
+        free: 5,
         starter: 100,
         team: 500
       };
       
       const plan = userMeta.subscriptionPlan.toLowerCase();
-      const limit = limits[plan] || 10;
+      const limit = limits[plan] || 5;
 
       if (currentScans >= limit) {
         return res.status(403).json({ 
-          message: `Monthly scan limit reached for ${userMeta.subscriptionPlan} plan (${limit} scans).` 
+          error: "Scan limit reached",
+          message: `Monthly scan limit reached for ${userMeta.subscriptionPlan} plan (${limit} scans).`,
+          upgrade_required: true,
+          scans_remaining: 0
         });
       }
 
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({
+          error: "No file uploaded.",
+          suggestion: "Please select a file to upload."
+        });
       }
 
-      let text = "";
-      const buffer = req.file.buffer;
+      const { originalname, mimetype, size, buffer } = req.file;
 
-      if (req.file.mimetype === "application/pdf") {
-        const data = await pdfParse(buffer);
-        text = data.text;
-      } else if (
-        req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ) {
-        const result = await mammoth.extractRawText({ buffer });
-        text = result.value;
-      } else {
-        return res.status(400).json({ message: "Unsupported file type. Please upload PDF or DOCX." });
+      // Check for empty files
+      if (size === 0 || buffer.length === 0) {
+        return res.status(400).json({
+          error: "The uploaded file is empty.",
+          suggestion: "Please upload a file that contains resume content."
+        });
       }
 
-      if (!text || text.trim().length === 0) {
-        return res.status(400).json({ message: "Could not extract text from the file." });
+      // Extract text — handles PDF (with OCR fallback) and DOCX
+      let extraction: { text: string; length: number; source: string };
+      try {
+        extraction = await extractResumeText(buffer, originalname, mimetype);
+      } catch (extractErr: any) {
+        // Check if it's our custom ExtractionError (has .error and .suggestion)
+        if (extractErr.name === "ExtractionError" && extractErr.error && extractErr.suggestion) {
+          console.warn(`[scan] Extraction error: ${extractErr.error}`);
+          return res.status(400).json({
+            error: extractErr.error,
+            suggestion: extractErr.suggestion
+          });
+        }
+        // Fallback for other errors
+        console.warn(`[scan] Extraction failed: ${extractErr.message}`);
+        return res.status(400).json({
+          error: "Failed to extract text from file.",
+          suggestion: "Try uploading a different file or paste the resume text manually."
+        });
       }
 
-      const biasResult = analyzeBias(text);
+      const { text: rawText, length: textLength, source: extractionSource } = extraction;
+      console.log(
+        `[scan] Extraction summary — source: ${extractionSource} | length: ${textLength} chars | OCR used: ${extractionSource === "ocr" ? "YES" : "NO"}`
+      );
 
-      // Store in database as a scan entry
+      // ── STEP 1: Store raw text immediately ──────────────────────────────────
       const scan = await storage.createScan({
-        userId: req.user.claims.sub,
-        resumeText: text,
+        userId: req.user.id,
+        filename: req.file.originalname,
+        resumeText: rawText,
       });
 
-      // Update with scan results
+      // ── STEP 2: Clean text (only for OCR output) + parse sections (parallel) ─
+      const t0 = Date.now();
+      const [cleanText, sections] = await Promise.all([
+        extractionSource === "ocr" ? cleanOCRText(rawText) : Promise.resolve(rawText),
+        parseResumeSections(rawText),
+      ]);
+      console.log(`[scan] NLP pipeline done in ${Date.now() - t0}ms`);
+
+      // ── STEP 3: Advanced bias analysis with section context ─────────────────
+      const biasResult = analyzeBias(cleanText, sections);
+
+      // ── STEP 4: Persist full analysis ────────────────────────────────────────
       const updated = await storage.updateScanAnalysis(
         scan.id,
         biasResult.score,
@@ -150,30 +355,39 @@ export async function registerRoutes(
         {
           summary: biasResult.explanation,
           biasFlags: biasResult.flags.map(f => ({
-            category: "General",
-            description: f,
-            severity: biasResult.riskLevel as "Low" | "Moderate" | "High",
-            suggestion: "Consider neutralizing this language."
+            phrase: f.phrase,
+            category: f.category,
+            context: f.context,
+            severity: f.severity,
+            description: f.description,
+            suggestion: f.suggestion,
+            section: f.section,
           })),
-          scores: {
-            language: biasResult.score,
-            age: 100,
-            name: 100
-          }
-        }
+          scores: biasResult.scores,
+        },
+        cleanText !== rawText ? cleanText : undefined,
+        sections,
       );
 
-      // Update user scan count
+      // ── STEP 5: Update usage counter ─────────────────────────────────────────
       try {
-        await storage.incrementScanCount(req.user.claims.sub);
+        await storage.incrementScanCount(req.user.id);
       } catch (e) {
         console.error("Failed to increment scan count", e);
       }
 
       res.json({
-        ...biasResult,
+        score: biasResult.score,
+        riskLevel: biasResult.riskLevel,
         scan_id: updated.id,
-        resumeId: updated.id
+        resumeId: updated.id,
+        sections,
+        extraction: {
+          text: rawText.slice(0, 200) + (rawText.length > 200 ? "…" : ""),
+          length: textLength,
+          source: extractionSource,
+          ocrCleaned: extractionSource === "ocr" && cleanText !== rawText,
+        },
       });
     } catch (err) {
       console.error("Scan error:", err);
@@ -181,11 +395,23 @@ export async function registerRoutes(
     }
   });
 
+  // Helper to normalize scan fields for frontend consumption
+  function normalizeScan(scan: any) {
+    return {
+      ...scan,
+      score: scan.biasScore ?? null,
+      analysis: scan.flags ?? null,
+      filename: scan.filename || "resume",
+      cleanText: scan.cleanText ?? null,
+      sections: scan.sections ?? null,
+    };
+  }
+
   app.get(api.resumes.list.path, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const items = await storage.getUserScans(userId);
-      res.json(items);
+      res.json(items.map(normalizeScan));
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -197,10 +423,10 @@ export async function registerRoutes(
       if (!scan) {
         return res.status(404).json({ message: "Not found" });
       }
-      if (scan.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.id) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      res.json(scan);
+      res.json(normalizeScan(scan));
     } catch (err) {
       res.status(500).json({ message: "Server error" });
     }
@@ -210,7 +436,8 @@ export async function registerRoutes(
     try {
       const input = api.resumes.upload.input.parse(req.body);
       const scan = await storage.createScan({
-        userId: req.user.claims.sub,
+        userId: req.user.id,
+        filename: input.filename || "resume.txt",
         resumeText: input.text,
       });
       res.status(201).json(scan);
@@ -229,43 +456,27 @@ export async function registerRoutes(
     try {
       const scan = await storage.getScan(Number(req.params.id));
       if (!scan) return res.status(404).json({ message: "Not found" });
-      if (scan.userId !== req.user.claims.sub) return res.status(401).json({ message: "Unauthorized" });
+      if (scan.userId !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
       if (scan.biasScore !== null) return res.json(scan); // already analyzed
 
       // Call OpenAI to analyze bias
-      const prompt = `Analyze the following resume for bias (gender, age, race, socioeconomic, etc.).
-Resume text:
-${scan.resumeText}
-
-Respond with JSON matching this structure exactly:
-{
-  "score": <0-100 fairness score, 100 is perfectly unbiased>,
-  "riskLevel": "<Low | Moderate | High>",
-  "analysis": {
-    "summary": "<overall summary>",
-    "biasFlags": [
-      { "category": "<type of bias>", "description": "<description>", "severity": "<Low|Moderate|High>", "suggestion": "<rewrite suggestion>" }
-    ]
-  }
-}`;
-
-      const aiResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      });
-
-      const aiResult = JSON.parse(aiResponse.choices[0].message?.content || "{}");
-      
-      const scores = aiResult.scores || { language: aiResult.score || 0, age: aiResult.score || 0, name: aiResult.score || 0 };
+      const biasResult = analyzeBias(scan.resumeText);
+      const suggestions = await generateRewriteSuggestions(scan.resumeText, biasResult.flags);
 
       const updated = await storage.updateScanAnalysis(
         scan.id,
-        aiResult.score || 0,
-        aiResult.riskLevel || "Moderate",
+        biasResult.score,
+        biasResult.riskLevel,
         {
-          ...(aiResult.analysis || { summary: "Analysis failed", biasFlags: [] }),
-          scores
+          summary: biasResult.explanation,
+          biasFlags: biasResult.flags.map(f => ({
+            category: "General",
+            description: f,
+            severity: "Moderate",
+            suggestion: suggestions.find(s => f.includes(s.original))?.suggestion || "Consider more inclusive language"
+          })),
+          suggestions,
+          scores: { language: biasResult.score, age: biasResult.score, name: 100 }
         }
       );
 
@@ -273,6 +484,159 @@ Respond with JSON matching this structure exactly:
     } catch (err) {
       console.error("AI Analysis error:", err);
       res.status(500).json({ message: "Failed to analyze resume" });
+    }
+  });
+
+  // ── Bulk scan endpoint: POST /api/scan-bulk-resumes ────────────────────────
+  const multiUpload = multer({ storage: multer.memoryStorage() });
+  app.post("/api/scan-bulk-resumes", isAuthenticated, multiUpload.array("files", 10), async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const files = req.files as Express.Multer.File[];
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({
+          error: "No files uploaded.",
+          suggestion: "Select at least one file to upload."
+        });
+      }
+
+      // ── Check plan limits ──────────────────────────────────────────────────
+      let userMeta = await storage.getUserMetadata(userId);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({
+          userId,
+          email: req.user.email || "unknown@example.com"
+        });
+      }
+
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      const maxFilesPerBatch = plan === "free" ? 1 : 10; // Free: 1, Starter/Team: 10
+      
+      if (files.length > maxFilesPerBatch) {
+        return res.status(403).json({
+          error: `Your ${userMeta.subscriptionPlan} plan allows maximum ${maxFilesPerBatch} file(s) per upload.`,
+          upgrade_required: plan === "free",
+          suggestion: `Please upload ${maxFilesPerBatch} file(s) or fewer.`
+        });
+      }
+
+      const now = new Date();
+      const lastReset = new Date(userMeta.lastScanReset);
+      let currentScans = userMeta.scansUsed;
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        currentScans = 0;
+      }
+
+      const limits: Record<string, number> = { free: 5, starter: 100, team: 500 };
+      const limit = limits[plan] || 10;
+      if (currentScans + files.length > limit) {
+        return res.status(403).json({
+          error: `Monthly scan limit would be exceeded. You have ${limit - currentScans} scan(s) remaining.`,
+          suggestion: `You can upload ${Math.floor((limit - currentScans) / files.length)} batch(es) with ${files.length} files each.`
+        });
+      }
+
+      // ── Generate batch ID and process files in parallel ────────────────────
+      const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const results = await Promise.allSettled(
+        files.map(async (file) => {
+          const t0 = Date.now();
+          try {
+            // 1. Extract text
+            const extraction = await extractResumeText(file.buffer, file.originalname, file.mimetype);
+            const { text: rawText, source: extractionSource } = extraction;
+
+            // 2. Clean + parse sections (parallel)
+            const [cleanText, sections] = await Promise.all([
+              extractionSource === "ocr" ? cleanOCRText(rawText) : Promise.resolve(rawText),
+              parseResumeSections(rawText),
+            ]);
+
+            // 3. Analyze bias
+            const biasResult = analyzeBias(cleanText, sections);
+
+            // 4. Create scan record with batch ID
+            const scan = await storage.createScan({
+              userId,
+              batchId,
+              filename: file.originalname,
+              resumeText: rawText,
+            });
+
+            // 5. Update analysis
+            await storage.updateScanAnalysis(
+              scan.id,
+              biasResult.score,
+              biasResult.riskLevel,
+              {
+                summary: biasResult.explanation,
+                biasFlags: biasResult.flags.map(f => ({
+                  phrase: f.phrase,
+                  category: f.category,
+                  context: f.context,
+                  severity: f.severity,
+                  description: f.description,
+                  suggestion: f.suggestion,
+                  section: f.section,
+                })),
+                scores: biasResult.scores,
+              },
+              cleanText !== rawText ? cleanText : undefined,
+              sections,
+            );
+
+            const elapsed = Date.now() - t0;
+            console.log(`[bulk] ${file.originalname}: success in ${elapsed}ms`);
+            return {
+              fileName: file.originalname,
+              status: "success",
+              scanId: scan.id,
+              biasScore: biasResult.score,
+              riskLevel: biasResult.riskLevel,
+              summary: biasResult.explanation,
+              flags: biasResult.flags,
+              elapsed_ms: elapsed,
+            };
+          } catch (err: any) {
+            const elapsed = Date.now() - t0;
+            console.error(`[bulk] ${file.originalname}: error — ${err.message}`);
+            return {
+              fileName: file.originalname,
+              status: "failed",
+              error: err instanceof ExtractionError ? err.error : err.message || "Unknown error",
+              suggestion: err instanceof ExtractionError ? err.suggestion : "Try a different file.",
+              elapsed_ms: elapsed,
+            };
+          }
+        })
+      );
+
+      // ── Tally results ──────────────────────────────────────────────────────
+      const succeeded = results.filter(r => r.status === "fulfilled" && r.value.status === "success").length;
+      const failed = results.filter(r => r.status === "rejected" || (r.status === "fulfilled" && r.value.status === "failed")).length;
+
+      // ── Increment usage counter for successful scans ──────────────────────
+      if (succeeded > 0) {
+        await storage.incrementScanCount(userId, succeeded);
+      }
+
+      // ── Return structured bulk response ────────────────────────────────────
+      res.json({
+        batchId,
+        totalFiles: files.length,
+        processed: succeeded,
+        failed,
+        results: results.map(r => (r.status === "fulfilled" ? r.value : {
+          fileName: "unknown",
+          status: "failed",
+          error: "Processing error",
+          elapsed_ms: 0,
+        })),
+      });
+    } catch (err) {
+      console.error("Bulk scan error:", err);
+      res.status(500).json({ message: "Error processing bulk resumes" });
     }
   });
 
