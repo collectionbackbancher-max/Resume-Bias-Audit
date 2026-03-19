@@ -1,0 +1,127 @@
+Enhance the existing "AI Resume Bias Auditor" to support bulk resume uploads (up to 10 files per request).
+
+========================
+BACKEND (FastAPI)
+========================
+
+Create new endpoint:
+
+POST /scan-bulk-resumes
+
+Requirements:
+- Accept multiple files:
+    files: List[UploadFile]
+- Limit to maximum 10 files
+- Validate file types (PDF, DOCX only)
+
+For each file:
+1. Extract text (pdfplumber or OCR fallback)
+2. Clean text (clean_resume_text)
+3. Parse sections (parse_resume_sections)
+4. Run bias detection
+
+Process files in a loop (or async if possible)
+
+Return structured response:
+
+{
+  "total_files": number,
+  "processed": number,
+  "results": [
+    {
+      "file_name": "",
+      "status": "success | failed",
+      "error": "",
+      "bias_score": number,
+      "risk_level": "",
+      "flags": [],
+      "summary": ""
+    }
+  ]
+}
+
+Error Handling:
+- If one file fails, continue others
+- Return error per file
+
+========================
+PERFORMANCE (IMPORTANT)
+========================
+
+- Use async processing where possible
+- Limit processing time per file
+- Add logs:
+    - file name
+    - processing time
+    - extraction method (OCR or normal)
+
+========================
+DATABASE UPDATE
+========================
+
+Update scans table:
+- Add file_name
+- Add batch_id (group multiple uploads)
+
+Each resume = one row
+
+========================
+FRONTEND (Next.js)
+========================
+
+Update Upload Page:
+
+Features:
+- Allow selecting multiple files (max 10)
+- Drag & drop multiple files
+- Show file list before upload
+- Show progress for each file
+
+On submit:
+- Send files as FormData:
+    formData.append("files", file)
+
+========================
+RESULTS PAGE (BULK VIEW)
+========================
+
+Create bulk results page:
+
+Display:
+- Table of all resumes
+- Columns:
+    - File Name
+    - Bias Score
+    - Risk Level
+    - Status
+    - View Details button
+
+Add:
+- Sort by score
+- Filter by risk level
+
+Click "View Details":
+→ Opens single resume analysis page
+
+========================
+UI ENHANCEMENTS
+========================
+
+- Show total processed count
+- Show success vs failed
+- Add loading spinner during batch processing
+
+========================
+LIMITATION
+========================
+
+- Free plan: max 3 files per upload
+- Paid plan: max 10 files
+
+========================
+IMPORTANT
+========================
+
+- Do NOT crash entire request if one file fails
+- Keep processing independent per file
+- Keep response structured and clean

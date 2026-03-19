@@ -5,70 +5,58 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import {
-  UploadCloud,
-  FileCheck,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  FileText,
-  Cpu,
-  ArrowRight,
-  X,
+  UploadCloud, FileCheck, Loader2, AlertCircle, CheckCircle2, FileText,
+  ArrowRight, X, Trash2, CheckSquare, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 
-interface ScanResult {
-  score: number;
-  riskLevel: string;
-  resumeId: number;
-  extraction: {
-    text: string;
-    length: number;
-    source: "pdf-parse" | "ocr" | "docx";
-  };
+interface BulkResult {
+  fileName: string;
+  status: "success" | "failed";
+  scanId?: number;
+  biasScore?: number;
+  riskLevel?: string;
+  error?: string;
+  suggestion?: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  "pdf-parse": "PDF (text-based)",
-  ocr: "PDF (OCR — image scan detected)",
-  docx: "DOCX",
-};
+interface BulkResponse {
+  batchId: string;
+  totalFiles: number;
+  processed: number;
+  failed: number;
+  results: BulkResult[];
+}
 
 export default function Upload() {
   const [text, setText] = useState("");
   const [filename, setFilename] = useState("Manual Entry");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  // Upload progress (0–100)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadPhase, setUploadPhase] = useState<
-    "idle" | "uploading" | "processing" | "done" | "error"
-  >("idle");
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "processing" | "done" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorSuggestion, setErrorSuggestion] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [bulkResults, setBulkResults] = useState<BulkResponse | null>(null);
 
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const uploadMutation = useUploadResume();
 
-  // ── Dropzone ──────────────────────────────────────────────────────────────
+  // ── Dropzone accepts multiple files (up to 10) ─────────────────────────────
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      setSelectedFile(acceptedFiles[0]);
-      setFilename(acceptedFiles[0].name);
-      setScanResult(null);
-      setErrorMessage(null);
-      setErrorSuggestion(null);
-      setUploadPhase("idle");
-      setUploadProgress(0);
-    }
-  }, []);
+    const combined = [...selectedFiles, ...acceptedFiles].slice(0, 10);
+    setSelectedFiles(combined);
+    setErrorMessage(null);
+    setErrorSuggestion(null);
+    setBulkResults(null);
+    setUploadPhase("idle");
+  }, [selectedFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -76,105 +64,102 @@ export default function Upload() {
       "application/pdf": [".pdf"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     },
-    maxFiles: 1,
-    maxSize: 10 * 1024 * 1024, // 10 MB
+    maxSize: 10 * 1024 * 1024,
   });
 
-  // ── File scan via axios (with progress) ───────────────────────────────────
-  const scanFile = async (file: File) => {
+  // ── Bulk scan via axios ────────────────────────────────────────────────────
+  const scanFiles = async () => {
+    if (selectedFiles.length === 0) return;
+
     setErrorMessage(null);
     setErrorSuggestion(null);
-    setScanResult(null);
+    setBulkResults(null);
     setUploadProgress(0);
     setUploadPhase("uploading");
 
     const formData = new FormData();
-    formData.append("file", file);
+    selectedFiles.forEach(file => formData.append("files", file));
 
     try {
-      const response = await axios.post<ScanResult>("/api/scan-resume", formData, {
+      const response = await axios.post<BulkResponse>("/api/scan-bulk-resumes", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
         onUploadProgress: (event) => {
           if (event.total) {
             const pct = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(pct);
-            // Once 100% uploaded the server is still processing (OCR can be slow)
             if (pct === 100) setUploadPhase("processing");
           }
         },
       });
 
-      setScanResult(response.data);
+      setBulkResults(response.data);
       setUploadPhase("done");
       queryClient.invalidateQueries({ queryKey: [api.resumes.list.path] });
     } catch (err: any) {
       setUploadPhase("error");
-      // Handle structured error response: { error: "...", suggestion: "..." }
       const error = err?.response?.data?.error;
       const suggestion = err?.response?.data?.suggestion;
       if (error) {
         setErrorMessage(error);
         setErrorSuggestion(suggestion || null);
       } else {
-        // Fallback for non-structured errors
-        setErrorMessage(
-          err?.response?.data?.message ||
-          err?.message ||
-          "Upload failed. Please try again."
-        );
+        setErrorMessage(err?.message || "Upload failed. Please try again.");
         setErrorSuggestion(null);
       }
     }
   };
 
-  // ── Text paste submit ─────────────────────────────────────────────────────
+  // ── Text paste submit ──────────────────────────────────────────────────────
   const submitText = async () => {
     try {
       const result = await uploadMutation.mutateAsync({ filename, text });
       setLocation(`/report/${result.id}`);
     } catch {
-      // Handled by mutation hook toast
+      // Handled by mutation hook
     }
   };
 
   const handleSubmit = () => {
-    if (selectedFile) {
-      scanFile(selectedFile);
+    if (selectedFiles.length > 0) {
+      scanFiles();
     } else if (text.trim()) {
       submitText();
     }
   };
 
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const isUploading = uploadPhase === "uploading" || uploadPhase === "processing";
   const isTextPending = uploadMutation.isPending;
-  const canSubmit = (selectedFile || text.trim()) && !isUploading && !isTextPending;
+  const canSubmit = (selectedFiles.length > 0 || text.trim()) && !isUploading && !isTextPending;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-3xl font-display font-bold mb-2">Upload Resume</h1>
+        <h1 className="text-3xl font-display font-bold mb-2">Upload Resumes</h1>
         <p className="text-muted-foreground">
-          Upload a PDF or DOCX to run a deep bias audit powered by AI.
+          Upload up to 10 PDFs or DOCX files for batch bias analysis.
         </p>
       </div>
 
-      {/* ── Drop Zone ── */}
+      {/* Drop Zone */}
       <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
         <div
           {...getRootProps()}
           className={[
             "border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all",
             isDragActive ? "border-primary bg-primary/5 scale-[1.01]" : "border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/5",
-            selectedFile && uploadPhase !== "error" ? "border-primary bg-primary/5" : "",
+            selectedFiles.length > 0 ? "border-primary bg-primary/5" : "",
           ].join(" ")}
           data-testid="dropzone"
         >
-          <input {...getInputProps()} data-testid="input-file" />
-
+          <input {...getInputProps()} data-testid="input-files" />
           <AnimatePresence mode="wait">
-            {selectedFile ? (
+            {selectedFiles.length > 0 ? (
               <motion.div
                 key="selected"
                 initial={{ opacity: 0, y: 8 }}
@@ -183,31 +168,14 @@ export default function Upload() {
                 className="flex flex-col items-center gap-3"
               >
                 <div className="w-14 h-14 bg-primary/15 rounded-2xl flex items-center justify-center">
-                  <FileCheck className="h-7 w-7 text-primary" />
+                  <CheckSquare className="h-7 w-7 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-base">{selectedFile.name}</p>
+                  <p className="font-semibold text-base">{selectedFiles.length} file(s) selected</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    {(selectedFile.size / 1024).toFixed(0)} KB
+                    {(selectedFiles.reduce((s, f) => s + f.size, 0) / 1024).toFixed(0)} KB total
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground gap-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedFile(null);
-                    setScanResult(null);
-                    setErrorMessage(null);
-                    setErrorSuggestion(null);
-                    setUploadPhase("idle");
-                    setUploadProgress(0);
-                  }}
-                  data-testid="button-change-file"
-                >
-                  <X className="h-3.5 w-3.5" /> Change file
-                </Button>
               </motion.div>
             ) : (
               <motion.div
@@ -222,9 +190,9 @@ export default function Upload() {
                 </div>
                 <div>
                   <p className="font-semibold text-base">
-                    {isDragActive ? "Drop it here…" : "Click to upload or drag & drop"}
+                    {isDragActive ? "Drop files here…" : "Click to upload or drag & drop"}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-0.5">PDF or DOCX · max 10 MB</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">PDF or DOCX · max 10 MB each, up to 10 files</p>
                 </div>
               </motion.div>
             )}
@@ -232,7 +200,47 @@ export default function Upload() {
         </div>
       </motion.div>
 
-      {/* ── Progress / Status ── */}
+      {/* File list */}
+      <AnimatePresence>
+        {selectedFiles.length > 0 && uploadPhase === "idle" && (
+          <motion.div
+            key="filelist"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold text-sm mb-3">Files to upload</h3>
+                <div className="space-y-2">
+                  {selectedFiles.map((file, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg" data-testid={`file-item-${i}`}>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(i)}
+                        className="text-destructive hover:text-destructive"
+                        data-testid={`button-remove-file-${i}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Progress / Status */}
       <AnimatePresence>
         {isUploading && (
           <motion.div
@@ -248,7 +256,7 @@ export default function Upload() {
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 {uploadPhase === "uploading"
                   ? `Uploading… ${uploadProgress}%`
-                  : "Analyzing for bias (this may take a moment)…"}
+                  : "Analyzing resumes for bias (this may take a moment)…"}
               </span>
               {uploadPhase === "uploading" && (
                 <span className="text-primary font-medium">{uploadProgress}%</span>
@@ -262,7 +270,7 @@ export default function Upload() {
           </motion.div>
         )}
 
-        {/* ── Error message ── */}
+        {/* Error message */}
         {uploadPhase === "error" && errorMessage && (
           <motion.div
             key="error"
@@ -296,145 +304,130 @@ export default function Upload() {
           </motion.div>
         )}
 
-        {/* ── Extraction preview ── */}
-        {uploadPhase === "done" && scanResult && (
+        {/* Bulk results */}
+        {uploadPhase === "done" && bulkResults && (
           <motion.div
-            key="result"
-            initial={{ opacity: 0, y: 12 }}
+            key="results"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="space-y-4"
-            data-testid="extraction-result"
+            data-testid="bulk-results"
           >
-            {/* Source badge */}
-            <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
-              <CardContent className="p-4 flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-                    Extraction successful
-                  </p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {scanResult.extraction.source === "ocr" ? (
-                        <Cpu className="h-3.5 w-3.5 text-accent" />
-                      ) : (
-                        <FileText className="h-3.5 w-3.5 text-primary" />
-                      )}
-                      <span>
-                        Source:{" "}
-                        <strong>
-                          {SOURCE_LABELS[scanResult.extraction.source] ?? scanResult.extraction.source}
-                        </strong>
-                      </span>
-                    </span>
-                    <span className="text-xs text-muted-foreground" data-testid="text-extraction-length">
-                      {scanResult.extraction.length.toLocaleString()} characters extracted
-                    </span>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-secondary/50 p-4 rounded-xl text-center">
+                      <p className="text-sm text-muted-foreground mb-1">Total Files</p>
+                      <p className="text-2xl font-bold">{bulkResults.totalFiles}</p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-xl text-center border border-green-200">
+                      <p className="text-sm text-green-700 font-medium mb-1">Processed</p>
+                      <p className="text-2xl font-bold text-green-700">{bulkResults.processed}</p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-xl text-center border border-red-200">
+                      <p className="text-sm text-red-700 font-medium mb-1">Failed</p>
+                      <p className="text-2xl font-bold text-red-700">{bulkResults.failed}</p>
+                    </div>
                   </div>
+
+                  <div className="space-y-2">
+                    {bulkResults.results.map((result, i) => (
+                      <div
+                        key={i}
+                        className={`p-4 rounded-lg border ${
+                          result.status === "success"
+                            ? "bg-green-50 border-green-200"
+                            : "bg-red-50 border-red-200"
+                        }`}
+                        data-testid={`result-${i}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            {result.status === "success" ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{result.fileName}</p>
+                              {result.status === "success" ? (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Score: <span className="font-bold text-green-700">{result.biasScore}</span> · {result.riskLevel} Risk
+                                </p>
+                              ) : (
+                                <p className="text-xs text-red-700 mt-0.5">{result.error}</p>
+                              )}
+                            </div>
+                          </div>
+                          {result.status === "success" && result.scanId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setLocation(`/report/${result.scanId}`)}
+                              className="ml-2"
+                              data-testid={`button-view-${i}`}
+                            >
+                              View
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      setSelectedFiles([]);
+                      setBulkResults(null);
+                      setUploadPhase("idle");
+                    }}
+                    className="w-full"
+                    data-testid="button-upload-more"
+                  >
+                    Upload More Files
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-
-            {/* OCR notice */}
-            {scanResult.extraction.source === "ocr" && (
-              <div className="flex items-start gap-2.5 px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl text-sm text-accent-foreground">
-                <Cpu className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                <p>
-                  <strong>OCR was used</strong> — this PDF appeared to be image-based so Tesseract
-                  was applied to extract the text. Accuracy may vary for hand-written or low-resolution scans.
-                </p>
-              </div>
-            )}
-
-            {/* Text preview */}
-            {scanResult.extraction.text && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                  Text Preview
-                </p>
-                <Card className="bg-secondary/40 border-border/60">
-                  <CardContent className="p-4">
-                    <p
-                      className="text-sm font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap break-words"
-                      data-testid="text-preview"
-                    >
-                      {scanResult.extraction.text}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* View report CTA */}
-            <div className="flex justify-end">
-              <Button
-                size="lg"
-                className="rounded-full gap-2 shadow-md shadow-primary/20"
-                onClick={() => setLocation(`/report/${scanResult.resumeId}`)}
-                data-testid="button-view-report"
-              >
-                View Full Report <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Paste text fallback ── */}
-      {!selectedFile && uploadPhase === "idle" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <div className="relative my-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-muted" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-background px-3 text-muted-foreground">Or paste text directly</span>
-            </div>
-          </div>
-
-          <Card className="mt-5 border-border/60">
+      {/* Text paste fallback */}
+      {selectedFiles.length === 0 && uploadPhase === "idle" && (
+        <div className="border-t pt-8">
+          <h2 className="text-xl font-bold font-display mb-4">Or paste resume text</h2>
+          <div className="space-y-3">
             <Textarea
+              placeholder="Paste resume content here…"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste the resume text here…"
-              className="min-h-[180px] border-0 focus-visible:ring-0 rounded-xl resize-none p-5 font-mono text-sm leading-relaxed"
-              data-testid="textarea-resume-text"
+              className="min-h-32"
+              data-testid="textarea-paste"
             />
-          </Card>
-        </motion.div>
-      )}
-
-      {/* ── Action buttons (only show when not done) ── */}
-      {uploadPhase !== "done" && (
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => window.history.back()}
-            disabled={isUploading || isTextPending}
-            className="rounded-full"
-            data-testid="button-cancel"
-          >
-            Cancel
-          </Button>
-          <Button
-            size="lg"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="min-w-[150px] rounded-full shadow-md shadow-primary/20"
-            data-testid="button-start-audit"
-          >
-            {isUploading || isTextPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {uploadPhase === "uploading" ? "Uploading…" : "Analyzing…"}
-              </>
-            ) : (
-              "Start Audit"
-            )}
-          </Button>
+          </div>
         </div>
       )}
+
+      {/* Submit button */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex gap-3"
+      >
+        <Button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          size="lg"
+          className="flex-1 gap-2"
+          data-testid="button-submit"
+        >
+          {selectedFiles.length > 0 ? `Scan ${selectedFiles.length} File(s)` : "Scan Resume"}
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </motion.div>
     </div>
   );
 }

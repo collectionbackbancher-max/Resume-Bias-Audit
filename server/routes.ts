@@ -381,5 +381,157 @@ export async function registerRoutes(
     }
   });
 
+  // ── Bulk scan endpoint: POST /api/scan-bulk-resumes ────────────────────────
+  const multiUpload = multer({ storage: multer.memoryStorage() });
+  app.post("/api/scan-bulk-resumes", isAuthenticated, multiUpload.array("files", 10), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const files = req.files as Express.Multer.File[];
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({
+          error: "No files uploaded.",
+          suggestion: "Select at least one file to upload."
+        });
+      }
+
+      // ── Check plan limits ──────────────────────────────────────────────────
+      let userMeta = await storage.getUserMetadata(userId);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({
+          userId,
+          email: req.user.claims.email || "unknown@example.com"
+        });
+      }
+
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      const maxFilesPerBatch = plan === "free" ? 1 : plan === "starter" ? 5 : 10;
+      
+      if (files.length > maxFilesPerBatch) {
+        return res.status(403).json({
+          error: `Your ${userMeta.subscriptionPlan} plan allows maximum ${maxFilesPerBatch} file(s) per upload.`,
+          suggestion: `Please upload ${maxFilesPerBatch} file(s) or fewer.`
+        });
+      }
+
+      const now = new Date();
+      const lastReset = new Date(userMeta.lastScanReset);
+      let currentScans = userMeta.scansUsed;
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+        currentScans = 0;
+      }
+
+      const limits: Record<string, number> = { free: 10, starter: 100, team: 500 };
+      const limit = limits[plan] || 10;
+      if (currentScans + files.length > limit) {
+        return res.status(403).json({
+          error: `Monthly scan limit would be exceeded. You have ${limit - currentScans} scan(s) remaining.`,
+          suggestion: `You can upload ${Math.floor((limit - currentScans) / files.length)} batch(es) with ${files.length} files each.`
+        });
+      }
+
+      // ── Generate batch ID and process files in parallel ────────────────────
+      const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const results = await Promise.allSettled(
+        files.map(async (file) => {
+          const t0 = Date.now();
+          try {
+            // 1. Extract text
+            const extraction = await extractResumeText(file.buffer, file.originalname, file.mimetype);
+            const { text: rawText, source: extractionSource } = extraction;
+
+            // 2. Clean + parse sections (parallel)
+            const [cleanText, sections] = await Promise.all([
+              extractionSource === "ocr" ? cleanOCRText(rawText) : Promise.resolve(rawText),
+              parseResumeSections(rawText),
+            ]);
+
+            // 3. Analyze bias
+            const biasResult = analyzeBias(cleanText, sections);
+
+            // 4. Create scan record with batch ID
+            const scan = await storage.createScan({
+              userId,
+              batchId,
+              filename: file.originalname,
+              resumeText: rawText,
+            });
+
+            // 5. Update analysis
+            await storage.updateScanAnalysis(
+              scan.id,
+              biasResult.score,
+              biasResult.riskLevel,
+              {
+                summary: biasResult.explanation,
+                biasFlags: biasResult.flags.map(f => ({
+                  phrase: f.phrase,
+                  category: f.category,
+                  context: f.context,
+                  severity: f.severity,
+                  description: f.description,
+                  suggestion: f.suggestion,
+                  section: f.section,
+                })),
+                scores: biasResult.scores,
+              },
+              cleanText !== rawText ? cleanText : undefined,
+              sections,
+            );
+
+            const elapsed = Date.now() - t0;
+            console.log(`[bulk] ${file.originalname}: success in ${elapsed}ms`);
+            return {
+              fileName: file.originalname,
+              status: "success",
+              scanId: scan.id,
+              biasScore: biasResult.score,
+              riskLevel: biasResult.riskLevel,
+              summary: biasResult.explanation,
+              flags: biasResult.flags,
+              elapsed_ms: elapsed,
+            };
+          } catch (err: any) {
+            const elapsed = Date.now() - t0;
+            console.error(`[bulk] ${file.originalname}: error — ${err.message}`);
+            return {
+              fileName: file.originalname,
+              status: "failed",
+              error: err instanceof ExtractionError ? err.error : err.message || "Unknown error",
+              suggestion: err instanceof ExtractionError ? err.suggestion : "Try a different file.",
+              elapsed_ms: elapsed,
+            };
+          }
+        })
+      );
+
+      // ── Tally results ──────────────────────────────────────────────────────
+      const succeeded = results.filter(r => r.status === "fulfilled" && r.value.status === "success").length;
+      const failed = results.filter(r => r.status === "rejected" || (r.status === "fulfilled" && r.value.status === "failed")).length;
+
+      // ── Increment usage counter for successful scans ──────────────────────
+      if (succeeded > 0) {
+        await storage.incrementScanCount(userId, succeeded);
+      }
+
+      // ── Return structured bulk response ────────────────────────────────────
+      res.json({
+        batchId,
+        totalFiles: files.length,
+        processed: succeeded,
+        failed,
+        results: results.map(r => (r.status === "fulfilled" ? r.value : {
+          fileName: "unknown",
+          status: "failed",
+          error: "Processing error",
+          elapsed_ms: 0,
+        })),
+      });
+    } catch (err) {
+      console.error("Bulk scan error:", err);
+      res.status(500).json({ message: "Error processing bulk resumes" });
+    }
+  });
+
   return httpServer;
 }

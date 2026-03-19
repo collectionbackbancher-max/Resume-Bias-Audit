@@ -77,11 +77,48 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 - **Image**: Image generation via OpenAI (available but secondary)
 - **Batch**: Batch processing utilities with rate limiting (available but secondary)
 
+## Advanced Features (Built)
+
+### NLP Pipeline (`server/nlp_pipeline.ts`)
+- **Text Cleaning**: Calls GPT-4o to fix OCR artifacts (broken words, page numbers, noise) — only for OCR-extracted text
+- **Section Parsing**: Calls GPT-4o to extract structured resume sections (name, summary, skills, experience, education, projects, other)
+- Both steps run in parallel via `Promise.all()` for efficiency
+- In-memory cache by text fingerprint to avoid redundant API calls
+
+### Advanced Bias Detection (`server/bias_engine.ts`)
+- **Context-aware**: Checks surrounding words ("aggressive sales growth" vs "aggressive leader" = different risk levels)
+- **Expanded keyword lists**: Masculine-coded and feminine-coded language detection + age proxies
+- **Section-weighted**: Experience/Summary flagged at 1.0× weight; Skills at 0.5×; Other at 0.4×
+- **Frequency-based scoring**: Multiple occurrences raise severity
+- **Intersection signals**: Age + leadership language combined = automatic High severity
+- **Rich flag objects**: phrase, category, context, severity, description, suggestion, section per flag
+
+### Bulk Resume Upload
+- **Endpoint**: `POST /api/scan-bulk-resumes` — accepts 1–10 files per request (plan-dependent)
+- **Parallel processing**: Files processed concurrently via `Promise.allSettled()`
+- **Per-file error handling**: If one file fails, others continue; structured error response per file
+- **Batch grouping**: All files in a single request assigned same `batchId` for querying later
+- **Plan limits**: Free = 1 file/batch, Starter = 5, Team = 10
+- **Response**: `{ batchId, totalFiles, processed, failed, results[] }`
+
+### Report Page Enhancements
+- **Raw/Cleaned text toggle**: Shows cleaned version (only if OCR modified text)
+- **Annotated resume**: Inline highlighting of flagged phrases with severity colors
+- **Parsed sections panel**: Displays extracted sections (name, skills, experience, etc.) with icons
+- **Rich flag cards**: Phrase, category, section, context, severity badge, suggestion per flag
+- **Intersection signals**: Highlighted when compound patterns detected
+- **Score breakdown**: Language/age/name subscores
+
 ## External Dependencies
 
 ### Required Services
 - **PostgreSQL Database**: Connected via `DATABASE_URL` environment variable. Used for all data storage including sessions, users, and resume analyses.
-- **OpenAI API** (via Replit AI Integrations): Connected via `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL`. Used for AI-powered resume bias analysis.
+- **OpenAI API** (via Replit AI Integrations): Connected via `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL`. Used for:
+  - Text cleaning (GPT-4o)
+  - Section parsing (GPT-4o)
+  - Bias analysis (GPT-4o via bias_engine)
+  - Rewrite suggestions (GPT-5.2)
+- **System binaries**: Tesseract (OCR engine), pdftoppm (PDF to image conversion)
 
 ### Required Environment Variables
 - `DATABASE_URL` — PostgreSQL connection string
@@ -92,6 +129,6 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 - `REPL_ID` — Replit environment identifier
 
 ### Key NPM Packages
-- **Server**: express, drizzle-orm, pg, passport, openid-client, multer, pdf-parse, mammoth, openai
-- **Client**: react, wouter, @tanstack/react-query, framer-motion, recharts, react-dropzone, shadcn/ui (Radix primitives)
+- **Server**: express, drizzle-orm, pg, passport, openid-client, multer, pdf-parse, mammoth, openai, axios, node-tesseract-ocr
+- **Client**: react, wouter, @tanstack/react-query, framer-motion, recharts, react-dropzone, shadcn/ui (Radix primitives), axios
 - **Shared**: zod, drizzle-zod
