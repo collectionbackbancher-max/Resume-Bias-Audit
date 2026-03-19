@@ -165,7 +165,7 @@ export default function Report() {
                 </div>
                 <div className="bg-secondary/50 p-4 rounded-xl">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Word Count</div>
-                  <div className="text-2xl font-bold">{resume.rawText.split(/\s+/).length}</div>
+                  <div className="text-2xl font-bold">{resume.resumeText.split(/\s+/).length}</div>
                 </div>
               </div>
             </CardContent>
@@ -178,7 +178,7 @@ export default function Report() {
         <div className="md:col-span-2 space-y-6">
           <div>
             <h2 className="text-2xl font-bold font-display mb-4">Risk Heatmap</h2>
-            <BiasHeatmap text={resume.rawText} flags={resume.analysis?.biasFlags || []} />
+            <BiasHeatmap text={resume.resumeText} flags={resume.analysis?.biasFlags || []} />
             <p className="text-xs text-muted-foreground mt-2">Visual representation of bias density across the document.</p>
           </div>
 
@@ -195,7 +195,7 @@ export default function Report() {
             <h2 className="text-2xl font-bold font-display mb-6">Annotated Resume</h2>
             <Card>
               <CardContent className="pt-6 font-serif leading-relaxed text-sm max-h-[600px] overflow-y-auto">
-                <HighlightedText text={resume.rawText} flags={resume.analysis?.biasFlags || []} />
+                <HighlightedText text={resume.resumeText} flags={resume.analysis?.biasFlags || []} />
               </CardContent>
             </Card>
           </div>
