@@ -54,116 +54,37 @@ export default function LandingPage() {
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
 
-        <div className="container mx-auto px-6 pt-20 pb-28">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* Left Copy */}
+        <div className="container mx-auto px-6 pt-24 pb-32">
+          <div className="max-w-3xl">
             <motion.div variants={fadeUp} initial="hidden" animate="show">
               <Badge className="mb-6 rounded-full px-4 py-1.5 text-sm font-medium bg-cyan-500/20 text-cyan-300 border-cyan-500/40 gap-1.5 w-fit">
                 <Sparkles className="h-3.5 w-3.5" /> AI-Powered Bias Detection
               </Badge>
-              <h1 className="text-5xl lg:text-6xl font-display font-bold tracking-tight leading-[1.08] mb-6 text-white">
+              <h1 className="text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-8 text-white">
                 Hire for talent,<br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
                   not bias.
                 </span>
               </h1>
-              <p className="text-lg text-gray-300 mb-8 max-w-md leading-relaxed">
-                Upload any resume and get an instant fairness score. Our AI engine spots gender-coded language, age proxies, and other hidden bias markers in seconds.
+              <p className="text-xl text-gray-300 mb-12 max-w-2xl leading-relaxed">
+                Detect unconscious bias in resumes instantly. Our AI-powered platform analyzes gender-coded language, age proxies, and hidden bias markers to help you build fairer hiring processes.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 mb-10">
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Link href="/signup">
-                  <Button size="lg" className="h-12 px-7 rounded-full text-base shadow-lg shadow-cyan-500/40 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
-                    Start Auditing Free <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button size="lg" className="h-14 px-8 rounded-lg text-base shadow-lg shadow-cyan-500/40 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
+                    Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="h-12 px-7 rounded-full text-base border-cyan-500/40 text-white hover:bg-cyan-500/10">
-                  View Sample Report
+                <Button variant="outline" size="lg" className="h-14 px-8 rounded-lg text-base border-cyan-500/40 text-white hover:bg-cyan-500/10 font-medium">
+                  Learn More
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-5 text-sm text-gray-400">
+              <div className="flex flex-wrap gap-8 text-sm text-gray-400">
                 {["No credit card needed", "Works on PDF & DOCX", "Results in seconds"].map((t) => (
-                  <span key={t} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" /> {t}
+                  <span key={t} className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-cyan-400 shrink-0" /> {t}
                   </span>
                 ))}
-              </div>
-            </motion.div>
-
-            {/* Right — Mockup card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="relative"
-            >
-              <div className="absolute -inset-6 bg-gradient-to-br from-cyan-500/15 to-blue-500/15 rounded-[2.5rem] blur-3xl opacity-40" />
-              <div className="relative bg-slate-900 border border-cyan-500/30 rounded-3xl shadow-2xl shadow-cyan-500/20 overflow-hidden">
-                {/* Window chrome */}
-                <div className="flex items-center gap-2 px-5 py-4 border-b border-cyan-500/20 bg-slate-800/50">
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                  </div>
-                  <div className="flex-1 flex justify-center">
-                    <div className="text-xs font-mono text-gray-500 bg-black/60 px-3 py-1 rounded-full">
-                      candidate_resume.pdf — Analysis Complete
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-7 space-y-6">
-                  {/* Score */}
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Fairness Score</p>
-                      <div className="flex items-end gap-2">
-                        <span className="text-5xl font-display font-bold text-cyan-400">74</span>
-                        <span className="text-gray-400 pb-1.5 text-lg">/100</span>
-                      </div>
-                    </div>
-                    <div className="bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-yellow-500/40 flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Moderate Risk
-                    </div>
-                  </div>
-
-                  {/* Score bar */}
-                  <div>
-                    <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-cyan-400 to-blue-400 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: "74%" }}
-                        transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Flags */}
-                  <div className="space-y-2.5">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Detected Flags</p>
-                    {[
-                      { label: "Gender-coded word: \"aggressive\"", color: "bg-red-500/20 text-red-300 border-red-500/40" },
-                      { label: "Age proxy: \"recent graduate\"", color: "bg-orange-500/20 text-orange-300 border-orange-500/40" },
-                      { label: "Coded language: \"rockstar\"", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40" },
-                    ].map((flag) => (
-                      <div key={flag.label} className={`text-xs px-3 py-2 rounded-lg border font-medium ${flag.color}`}>
-                        {flag.label}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* AI suggestion preview */}
-                  <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Brain className="h-4 w-4 text-cyan-400" />
-                      <span className="text-xs font-semibold text-cyan-300">AI Suggestion</span>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      Replace <span className="font-semibold text-white">"aggressive go-getter"</span> → <span className="font-semibold text-cyan-400">"results-driven professional"</span> to eliminate gender-coded framing.
-                    </p>
-                  </div>
-                </div>
               </div>
             </motion.div>
           </div>
