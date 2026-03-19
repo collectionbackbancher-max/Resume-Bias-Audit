@@ -19,11 +19,7 @@ export const usersMetadata = pgTable("users_metadata", {
 export const scans = pgTable("scans", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => authUsers.id),
-  batchId: varchar("batch_id"), // Groups multiple uploads together
-  filename: text("filename").default("resume").notNull(),
   resumeText: text("resume_text").notNull(),
-  cleanText: text("clean_text"),
-  sections: json("sections").$type<any>(),
   biasScore: integer("bias_score"),
   riskLevel: text("risk_level"),
   flags: json("flags").$type<any>(),

@@ -1,42 +1,47 @@
-import { useState, useEffect } from "react";
-import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { User } from "@shared/models/auth";
+
+async function fetchUser(): Promise<User | null> {
+  const response = await fetch("/api/auth/user", {
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function logout(): Promise<void> {
+  window.location.href = "/api/logout";
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: user, isLoading } = useQuery<User | null>({
+    queryKey: ["/api/auth/user"],
+    queryFn: fetchUser,
+    retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      // Invalidate queries when auth state changes
-      queryClient.invalidateQueries();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    queryClient.clear();
-  };
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.setQueryData(["/api/auth/user"], null);
+    },
+  });
 
   return {
     user,
-    session,
     isLoading,
     isAuthenticated: !!user,
-    logout,
-    isLoggingOut: false,
+    logout: logoutMutation.mutate,
+    isLoggingOut: logoutMutation.isPending,
   };
 }
