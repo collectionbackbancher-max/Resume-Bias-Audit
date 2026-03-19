@@ -35,10 +35,10 @@ export default function LandingPage() {
             <span>BiasAuditor<span className="text-primary">.ai</span></span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/api/login">
+            <Link href="/login">
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
-            <Link href="/api/login">
+            <Link href="/signup">
               <Button size="sm" className="rounded-full px-5 shadow-md shadow-primary/20">
                 Get Started Free
               </Button>
@@ -71,7 +71,7 @@ export default function LandingPage() {
                 Upload any resume and get an instant fairness score. Our AI engine spots gender-coded language, age proxies, and other hidden bias markers in seconds.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
-                <Link href="/api/login">
+                <Link href="/signup">
                   <Button size="lg" className="h-12 px-7 rounded-full text-base shadow-lg shadow-primary/25">
                     Start Auditing Free <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -273,7 +273,7 @@ export default function LandingPage() {
             <p className="text-white/80 text-lg mb-8 max-w-md mx-auto">
               Join hiring teams who use BiasAuditor to build diverse, high-performing teams — one resume at a time.
             </p>
-            <Link href="/api/login">
+            <Link href="/signup">
               <Button size="lg" variant="secondary" className="h-12 px-8 rounded-full text-base font-semibold shadow-lg">
                 Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

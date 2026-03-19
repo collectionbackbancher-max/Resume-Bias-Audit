@@ -17,6 +17,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/upload", label: "New Audit", icon: Plus },
@@ -61,15 +64,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2.5">
-                  {user.profileImageUrl && (
+                  {avatarUrl ? (
                     <img
-                      src={user.profileImageUrl}
+                      src={avatarUrl}
                       alt="avatar"
                       className="w-7 h-7 rounded-full object-cover border border-border"
                     />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
                   )}
-                  <span className="text-sm font-medium text-muted-foreground hidden lg:block">
-                    {user.firstName || user.email}
+                  <span className="text-sm font-medium text-muted-foreground hidden lg:block" data-testid="text-username">
+                    {displayName}
                   </span>
                 </div>
                 <Button
@@ -98,7 +105,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
 
           {!user && (
-            <Link href="/api/login">
+            <Link href="/login">
               <Button size="sm" className="rounded-full px-5">Login / Sign Up</Button>
             </Link>
           )}
@@ -119,6 +126,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
             <div className="h-px w-full bg-border my-1" />
+            <div className="px-1 py-0.5 text-xs text-muted-foreground">{user.email}</div>
             <Button
               variant="ghost"
               className="w-full justify-start gap-2 rounded-xl text-destructive hover:text-destructive"

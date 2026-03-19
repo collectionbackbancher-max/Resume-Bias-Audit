@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { isAuthenticated } from "./supabaseAuth";
 import OpenAI from "openai";
 import multer from "multer";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
@@ -25,9 +25,14 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // ... existing setup
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // ── Auth user endpoint ─────────────────────────────────────────────────────
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+    res.json({
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name,
+    });
+  });
 
   // ── Debug endpoint: POST /debug-scan ────────────────────────────────────────
   // Returns extraction metadata without running bias analysis or saving to DB.
@@ -109,7 +114,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Scan not found" });
       }
 
-      if (scan.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
@@ -146,13 +151,13 @@ export async function registerRoutes(
 
   app.post("/api/scan-resume", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       let userMeta = await storage.getUserMetadata(userId);
       
       if (!userMeta) {
         userMeta = await storage.createUserMetadata({ 
           userId, 
-          email: req.user.claims.email || "unknown@example.com" 
+          email: req.user.email || "unknown@example.com" 
         });
       }
 
@@ -225,7 +230,7 @@ export async function registerRoutes(
 
       // ── STEP 1: Store raw text immediately ──────────────────────────────────
       const scan = await storage.createScan({
-        userId: req.user.claims.sub,
+        userId: req.user.id,
         filename: req.file.originalname,
         resumeText: rawText,
       });
@@ -265,7 +270,7 @@ export async function registerRoutes(
 
       // ── STEP 5: Update usage counter ─────────────────────────────────────────
       try {
-        await storage.incrementScanCount(req.user.claims.sub);
+        await storage.incrementScanCount(req.user.id);
       } catch (e) {
         console.error("Failed to increment scan count", e);
       }
@@ -303,7 +308,7 @@ export async function registerRoutes(
 
   app.get(api.resumes.list.path, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const items = await storage.getUserScans(userId);
       res.json(items.map(normalizeScan));
     } catch (err) {
@@ -317,7 +322,7 @@ export async function registerRoutes(
       if (!scan) {
         return res.status(404).json({ message: "Not found" });
       }
-      if (scan.userId !== req.user.claims.sub) {
+      if (scan.userId !== req.user.id) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       res.json(normalizeScan(scan));
@@ -330,7 +335,7 @@ export async function registerRoutes(
     try {
       const input = api.resumes.upload.input.parse(req.body);
       const scan = await storage.createScan({
-        userId: req.user.claims.sub,
+        userId: req.user.id,
         filename: input.filename || "resume.txt",
         resumeText: input.text,
       });
@@ -350,7 +355,7 @@ export async function registerRoutes(
     try {
       const scan = await storage.getScan(Number(req.params.id));
       if (!scan) return res.status(404).json({ message: "Not found" });
-      if (scan.userId !== req.user.claims.sub) return res.status(401).json({ message: "Unauthorized" });
+      if (scan.userId !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
       if (scan.biasScore !== null) return res.json(scan); // already analyzed
 
       // Call OpenAI to analyze bias
@@ -385,7 +390,7 @@ export async function registerRoutes(
   const multiUpload = multer({ storage: multer.memoryStorage() });
   app.post("/api/scan-bulk-resumes", isAuthenticated, multiUpload.array("files", 10), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const files = req.files as Express.Multer.File[];
 
       if (!files || files.length === 0) {
@@ -400,7 +405,7 @@ export async function registerRoutes(
       if (!userMeta) {
         userMeta = await storage.createUserMetadata({
           userId,
-          email: req.user.claims.email || "unknown@example.com"
+          email: req.user.email || "unknown@example.com"
         });
       }
 

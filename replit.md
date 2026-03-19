@@ -41,11 +41,16 @@ Preferred communication style: Simple, everyday language.
   - `POST /api/resumes/:id/analyze` — Trigger AI analysis on stored resume
 
 ### Authentication
-- **Method**: Replit Auth (OpenID Connect) — not username/password
-- **Session Storage**: PostgreSQL-backed sessions via `connect-pg-simple`
-- **Implementation**: Passport.js with OIDC strategy, session middleware
-- **Auth Routes**: `/api/login`, `/api/logout`, `/api/auth/user`
-- **Middleware**: `isAuthenticated` guard on protected API routes
+- **Method**: Supabase Auth (email/password) — replaces old Replit Auth
+- **Session Storage**: Supabase JWT tokens (stateless, no server-side sessions)
+- **Frontend**: `@supabase/supabase-js` client in `client/src/lib/supabase.ts`
+- **Backend**: `server/supabaseAuth.ts` — verifies JWT via `supabase.auth.getUser(token)`
+- **Auth Pages**: `/login` (Login.tsx) and `/signup` (Signup.tsx)
+- **API Auth**: `Authorization: Bearer <access_token>` header on all API requests
+- **Auth Routes**: `GET /api/auth/user` — returns current user from JWT
+- **Middleware**: `isAuthenticated` guard in `server/supabaseAuth.ts` on all protected API routes
+- **User sync**: On each request, Supabase user is upserted into local `users` PostgreSQL table
+- **Supabase Project**: `https://ajlyemjgrwooisevyxse.supabase.co`
 
 ### Database
 - **Database**: PostgreSQL (required, connection via `DATABASE_URL` environment variable)

@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 
 // Pages
 import LandingPage from "@/pages/LandingPage";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Upload from "@/pages/Upload";
 import Report from "@/pages/Report";
@@ -28,7 +30,9 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={LandingPage} />
-        <Route component={LandingPage} /> {/* Catch-all for logged out users redirect to landing */}
+        <Route path="/login" component={Login} />
+        <Route path="/signup" component={Signup} />
+        <Route component={LandingPage} />
       </Switch>
     );
   }
@@ -39,6 +43,8 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/upload" component={Upload} />
         <Route path="/report/:id" component={Report} />
+        <Route path="/login" component={Dashboard} />
+        <Route path="/signup" component={Dashboard} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

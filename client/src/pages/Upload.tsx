@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 
@@ -80,10 +81,15 @@ export default function Upload() {
     const formData = new FormData();
     selectedFiles.forEach(file => formData.append("files", file));
 
+    const { data: { session } } = await supabase.auth.getSession();
+    const authHeader = session?.access_token ? `Bearer ${session.access_token}` : "";
+
     try {
       const response = await axios.post<BulkResponse>("/api/scan-bulk-resumes", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        withCredentials: true,
+        headers: {
+          "Content-Type": "multipart/form-data",
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
         onUploadProgress: (event) => {
           if (event.total) {
             const pct = Math.round((event.loaded / event.total) * 100);
