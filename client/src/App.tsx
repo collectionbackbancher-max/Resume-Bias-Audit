@@ -14,6 +14,8 @@ import Dashboard from "@/pages/Dashboard";
 import Upload from "@/pages/Upload";
 import Report from "@/pages/Report";
 import Pricing from "@/pages/Pricing";
+import Blog from "@/pages/Blog";
+import BlogPost from "@/pages/BlogPost";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
@@ -37,6 +39,8 @@ function Router() {
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
         <Route path="/pricing" component={Pricing} />
+        <Route path="/blog" component={Blog} />
+        <Route path="/blog/:slug" component={BlogPost} />
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/refund" component={RefundPolicy} />
