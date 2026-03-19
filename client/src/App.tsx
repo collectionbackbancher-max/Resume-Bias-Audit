@@ -13,6 +13,9 @@ import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Upload from "@/pages/Upload";
 import Report from "@/pages/Report";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import RefundPolicy from "@/pages/RefundPolicy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -32,6 +35,9 @@ function Router() {
         <Route path="/" component={LandingPage} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
+        <Route path="/terms" component={TermsOfService} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/refund" component={RefundPolicy} />
         <Route component={LandingPage} />
       </Switch>
     );

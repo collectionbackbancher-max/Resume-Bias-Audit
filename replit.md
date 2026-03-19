@@ -82,6 +82,30 @@ The `server/replit_integrations/` and `client/replit_integrations/` directories 
 - **Image**: Image generation via OpenAI (available but secondary)
 - **Batch**: Batch processing utilities with rate limiting (available but secondary)
 
+## Frontend Design & Styling
+
+### Landing Page Redesign
+- **Modern Hero Section**: Large gradient typography with neon blue accents on black background
+- **Animated Background**: Floating gradient orbs with smooth animations using Framer Motion
+- **Dynamic Badges**: Pulsing animations on "AI-Powered Bias Detection" badge
+- **Enhanced CTA Buttons**: Gradient backgrounds with hover scale animations
+- **Animated Statistics**: Gradient colored stat numbers that scale on hover
+- **Improved Footer**: Organized into Product, Company, and Legal columns with policy links
+
+### Dashboard Redesign
+- **Neon Blue/Black Theme**: Matches landing page with cyan accents
+- **Modern Stats Cards**: Gradient backgrounds with hover shadow effects
+- **Enhanced Risk Distribution**: Animated bars showing Low/Moderate/High risk breakdown
+- **Improved Resume Cards**: Better typography, hover effects, and gradient borders
+- **Loading States**: Animated spinner with gradient colors
+- **Better Empty State**: Visually enhanced empty state with clear CTA
+
+### Policy Pages
+- **Terms of Service** (`client/src/pages/TermsOfService.tsx`): Complete T&S documentation
+- **Privacy Policy** (`client/src/pages/PrivacyPolicy.tsx`): Data collection and usage terms
+- **Refund Policy** (`client/src/pages/RefundPolicy.tsx`): 30-day refund guarantee details
+- **Consistent Styling**: All policy pages use the neon blue/black theme with back navigation
+
 ## Advanced Features (Built)
 
 ### NLP Pipeline (`server/nlp_pipeline.ts`)
