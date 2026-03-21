@@ -171,7 +171,9 @@ export default function Dashboard() {
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const planPct = planData ? Math.min((planData.scans_used / planData.scans_limit) * 100, 100) : 0;
+  const planPct = planData?.scans_limit
+    ? Math.min(((planData.scans_used || 0) / planData.scans_limit) * 100, 100)
+    : 0;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">

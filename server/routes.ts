@@ -58,6 +58,8 @@ export async function registerRoutes(
         await storage.incrementScanCount(req.user.id, 0); // This resets it
       }
 
+      const plan = userMeta.subscriptionPlan.toLowerCase();
+      const isPaid = plan === "starter" || plan === "team";
       res.json({
         plan: userMeta.subscriptionPlan,
         scans_used: currentScans,
@@ -65,10 +67,11 @@ export async function registerRoutes(
         scans_remaining: Math.max(0, limit - currentScans),
         billing_cycle_start: userMeta.lastScanReset,
         features: {
-          bulk_upload: userMeta.subscriptionPlan !== "free",
-          max_files_per_batch: userMeta.subscriptionPlan === "free" ? 1 : 10,
-          pdf_download: userMeta.subscriptionPlan !== "free",
-          priority_processing: userMeta.subscriptionPlan === "team",
+          bulk_upload: isPaid,
+          max_files_per_batch: isPaid ? 10 : 1,
+          pdf_download: isPaid,
+          priority_processing: plan === "team",
+          ats_integrations: isPaid,
         }
       });
     } catch (err) {
@@ -665,9 +668,24 @@ export async function registerRoutes(
     return texts[candidateId] || "Professional with diverse background and strong technical skills.";
   }
 
+  // ── ATS plan guard helper ───────────────────────────────────────────────────
+  async function requireAtsPlan(req: any, res: any): Promise<boolean> {
+    const meta = await storage.getUserMetadata(req.user.id);
+    const plan = (meta?.subscriptionPlan || "free").toLowerCase();
+    if (plan !== "starter" && plan !== "team") {
+      res.status(403).json({
+        message: "ATS integrations require a Starter or Team plan.",
+        upgrade_required: true,
+      });
+      return false;
+    }
+    return true;
+  }
+
   // POST /api/ats/connect — save ATS API key
   app.post("/api/ats/connect", isAuthenticated, async (req: any, res) => {
     try {
+      if (!(await requireAtsPlan(req, res))) return;
       const { apiKey, provider = "greenhouse" } = req.body;
       if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length < 4) {
         return res.status(400).json({ message: "A valid API key is required." });
@@ -687,6 +705,7 @@ export async function registerRoutes(
   // DELETE /api/ats/disconnect — remove ATS connection
   app.delete("/api/ats/disconnect", isAuthenticated, async (req: any, res) => {
     try {
+      if (!(await requireAtsPlan(req, res))) return;
       await storage.deleteAtsConnection(req.user.id);
       res.json({ status: "disconnected" });
     } catch (err) {
@@ -698,6 +717,7 @@ export async function registerRoutes(
   // GET /api/ats/status — check if ATS is connected
   app.get("/api/ats/status", isAuthenticated, async (req: any, res) => {
     try {
+      if (!(await requireAtsPlan(req, res))) return;
       const conn = await storage.getAtsConnection(req.user.id);
       if (conn) {
         res.json({ connected: true, provider: conn.provider, connectedAt: conn.createdAt });
@@ -712,6 +732,7 @@ export async function registerRoutes(
   // GET /api/ats/candidates — fetch candidates (mock Greenhouse, real-ready)
   app.get("/api/ats/candidates", isAuthenticated, async (req: any, res) => {
     try {
+      if (!(await requireAtsPlan(req, res))) return;
       const conn = await storage.getAtsConnection(req.user.id);
       if (!conn) {
         return res.status(403).json({ message: "No ATS connected. Please connect your Greenhouse account first." });
@@ -734,6 +755,7 @@ export async function registerRoutes(
   // POST /api/ats/scan — run bias analysis on all ATS candidates
   app.post("/api/ats/scan", isAuthenticated, async (req: any, res) => {
     try {
+      if (!(await requireAtsPlan(req, res))) return;
       const conn = await storage.getAtsConnection(req.user.id);
       if (!conn) {
         return res.status(403).json({ message: "No ATS connected." });
