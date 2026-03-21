@@ -1,0 +1,202 @@
+Upgrade "AI Resume Bias Auditor" to include:
+
+1. Supabase Authentication (signup/login)
+2. User plan detection (Free, Starter, Team)
+3. Feature access control
+4. ATS integration ONLY for paid users
+
+========================
+SUPABASE AUTH (FRONTEND)
+========================
+
+- Use Supabase for authentication
+- صفحات:
+    /login
+    /signup
+
+Signup:
+- Email + password
+- supabase.auth.signUp()
+
+Login:
+- supabase.auth.signInWithPassword()
+
+Session:
+- Store session automatically
+- Redirect logged-in users to /dashboard
+
+Protect routes:
+- /dashboard
+- /upload
+- /results
+- /integrations
+
+If not logged in → redirect to /login
+
+Add logout button.
+
+========================
+SUPABASE AUTH (BACKEND)
+========================
+
+- Verify Supabase JWT in FastAPI
+- Extract user_id from token
+
+Create dependency:
+get_current_user()
+
+- Reject requests without valid token
+- Attach user_id to all requests
+
+========================
+DATABASE (SUPABASE POSTGRES)
+========================
+
+Users table:
+
+- id (uuid from Supabase auth)
+- email
+- subscription_plan ("free", "starter", "team")
+- scans_used (int)
+- billing_cycle_start (date)
+
+ATS Connections table:
+
+- id
+- user_id
+- provider
+- api_key
+- created_at
+
+On first login:
+→ Create user row with:
+   subscription_plan = "free"
+   scans_used = 0
+
+========================
+PLAN LOGIC
+========================
+
+Define plan limits:
+
+FREE:
+- scans_limit: 5
+- bulk_upload: false
+- ats_access: false
+
+STARTER:
+- scans_limit: 100
+- bulk_upload: true
+- ats_access: true
+
+TEAM:
+- scans_limit: 500
+- bulk_upload: true
+- ats_access: true
+
+========================
+BACKEND ACCESS CONTROL
+========================
+
+Create middleware or helper:
+
+check_user_plan(user_id)
+
+Before each feature:
+
+1. SCAN ENDPOINT:
+- Check scans_used vs limit
+
+2. BULK UPLOAD:
+- Free → allow only 1 file
+- Paid → allow up to 10
+
+3. ATS INTEGRATION:
+- If plan == "free":
+    → return error:
+
+{
+  "error": "ATS integration is available for paid plans only",
+  "upgrade_required": true
+}
+
+========================
+ATS INTEGRATION LOCK
+========================
+
+Protect these endpoints:
+
+- POST /connect-ats
+- GET /ats/candidates
+- POST /ats/scan-candidates
+
+Only allow:
+subscription_plan != "free"
+
+========================
+FRONTEND (PLAN AWARE UI)
+========================
+
+Dashboard:
+
+Show:
+- Current plan
+- Scans used / limit
+- Upgrade button
+
+========================
+ATS UI LOCK
+========================
+
+On /integrations page:
+
+If user is FREE:
+- Disable ATS features
+- Show message:
+
+"Upgrade to access ATS integrations"
+
+- Show upgrade button
+
+If PAID:
+- Enable:
+   - Connect ATS
+   - Fetch candidates
+   - Scan candidates
+
+========================
+UPGRADE FLOW (MVP)
+========================
+
+- Add API endpoint:
+
+POST /upgrade-plan
+
+- Change user plan manually (for now)
+
+========================
+API REQUEST AUTH
+========================
+
+Frontend must send:
+
+Authorization: Bearer <supabase_access_token>
+
+========================
+SECURITY RULES
+========================
+
+- Never trust frontend plan data
+- Always check plan in backend
+- Always verify JWT
+
+========================
+OUTPUT
+========================
+
+Generate:
+- Auth صفحات
+- Protected routes
+- Plan-based middleware
+- ATS feature lock
+- Dashboard with plan info
