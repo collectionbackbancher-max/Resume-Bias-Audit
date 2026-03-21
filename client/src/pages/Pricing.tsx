@@ -1,8 +1,9 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ShieldCheck, Zap } from "lucide-react";
+import { Check, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/use-auth";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -10,6 +11,8 @@ const fadeUp = {
 };
 
 export default function Pricing() {
+  const { user } = useAuth();
+
   const plans = [
     {
       name: "Free",
@@ -26,6 +29,7 @@ export default function Pricing() {
       notIncluded: [
         "Bulk uploads",
         "PDF downloads",
+        "ATS integrations",
         "Priority processing",
       ],
       popular: false,
@@ -41,6 +45,7 @@ export default function Pricing() {
         "All Free features",
         "PDF downloads",
         "Analytics dashboard",
+        "ATS integrations",
       ],
       notIncluded: [
         "Priority processing",
@@ -56,6 +61,7 @@ export default function Pricing() {
         "500 scans/month",
         "Bulk uploads (up to 10 files)",
         "All Starter features",
+        "ATS integrations",
         "Priority processing",
         "Custom integrations",
         "Team management",
@@ -66,26 +72,28 @@ export default function Pricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      {/* ── Header ── */}
-      <div className="sticky top-0 z-50 border-b border-cyan-500/20 bg-black/80 backdrop-blur-xl">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/">
-            <div className="flex items-center gap-2.5 font-display font-bold text-xl cursor-pointer hover:opacity-80 transition">
-              <div className="bg-cyan-500/20 p-2 rounded-xl">
-                <ShieldCheck className="h-5 w-5 text-cyan-400" />
+    <div className={user ? "" : "min-h-screen bg-black text-white overflow-x-hidden"}>
+      {/* ── Standalone nav — only shown when NOT logged in ── */}
+      {!user && (
+        <div className="sticky top-0 z-50 border-b border-cyan-500/20 bg-black/80 backdrop-blur-xl">
+          <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+            <Link href="/">
+              <div className="flex items-center gap-2.5 font-display font-bold text-xl cursor-pointer hover:opacity-80 transition">
+                <div className="bg-cyan-500/20 p-2 rounded-xl">
+                  <ShieldCheck className="h-5 w-5 text-cyan-400" />
+                </div>
+                <span className="text-white">BiasAuditor<span className="text-cyan-400">.ai</span></span>
               </div>
-              <span className="text-white">BiasAuditor<span className="text-cyan-400">.ai</span></span>
-            </div>
-          </Link>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="text-white hover:bg-cyan-500/10">Back</Button>
-          </Link>
+            </Link>
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="text-white hover:bg-cyan-500/10">Back</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Content ── */}
-      <div className="container mx-auto px-6 py-24">
+      <div className="container mx-auto px-6 py-16">
         {/* ── Header ── */}
         <motion.div className="text-center max-w-3xl mx-auto mb-16" variants={fadeUp} initial="hidden" animate="show">
           <h1 className="text-5xl lg:text-6xl font-display font-black text-white mb-6">
@@ -104,9 +112,7 @@ export default function Pricing() {
               initial="hidden"
               animate="show"
               className={`relative rounded-2xl transition-all duration-300 ${
-                plan.popular
-                  ? "md:scale-105 md:ring-2 md:ring-cyan-500"
-                  : ""
+                plan.popular ? "md:scale-105 md:ring-2 md:ring-cyan-500" : ""
               }`}
             >
               {plan.popular && (
@@ -159,7 +165,7 @@ export default function Pricing() {
                 </div>
 
                 {/* CTA */}
-                <Link href={plan.price === 0 ? "/signup" : "/dashboard"}>
+                <Link href={plan.price === 0 ? "/signup" : user ? "/" : "/signup"}>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">
                     <Button
                       size="lg"
