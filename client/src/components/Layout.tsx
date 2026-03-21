@@ -9,6 +9,12 @@ import {
   ShieldCheck,
   Plus,
   Plug,
+  CreditCard,
+  FileText,
+  BookOpen,
+  Twitter,
+  Github,
+  Linkedin,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -25,10 +31,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/upload", label: "New Audit", icon: Plus },
     { href: "/integrations", label: "Integrations", icon: Plug },
+    { href: "/pricing", label: "Pricing", icon: CreditCard },
   ];
 
+  const footerLinks = {
+    Product: [
+      { label: "Dashboard", href: "/" },
+      { label: "New Audit", href: "/upload" },
+      { label: "Integrations", href: "/integrations" },
+      { label: "Pricing", href: "/pricing" },
+    ],
+    Company: [
+      { label: "Blog", href: "/blog" },
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Terms of Service", href: "/terms" },
+    ],
+  };
+
   return (
-    <div className="min-h-screen bg-black antialiased">
+    <div className="min-h-screen bg-black antialiased flex flex-col">
       {/* ── Top Nav ── */}
       <nav className="sticky top-0 z-50 w-full border-b border-cyan-500/20 bg-black/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
@@ -147,9 +168,81 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       {/* ── Main content ── */}
-      <main className="container mx-auto px-6 py-10">
+      <main className="flex-1 container mx-auto px-6 py-10">
         {children}
       </main>
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-cyan-500/10 bg-black/60 mt-auto">
+        <div className="container mx-auto px-6 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+            {/* Brand column */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5 font-display font-bold text-lg">
+                <div className="bg-cyan-500/20 p-1.5 rounded-lg">
+                  <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                </div>
+                <span className="text-white">BiasAuditor<span className="text-cyan-400">.ai</span></span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed max-w-[200px]">
+                AI-powered bias detection for fair and inclusive hiring.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                {[
+                  { icon: Twitter, href: "#", label: "Twitter" },
+                  { icon: Linkedin, href: "#", label: "LinkedIn" },
+                  { icon: Github, href: "#", label: "GitHub" },
+                ].map(({ icon: Icon, href, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    aria-label={label}
+                    className="p-1.5 rounded-lg text-gray-600 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Link columns */}
+            {Object.entries(footerLinks).map(([section, links]) => (
+              <div key={section} className="space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{section}</p>
+                <ul className="space-y-2">
+                  {links.map((link) => (
+                    <li key={link.href}>
+                      <Link href={link.href}>
+                        <span className="text-sm text-gray-500 hover:text-cyan-400 transition-colors cursor-pointer">
+                          {link.label}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom bar */}
+          <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-gray-600">
+              © {new Date().getFullYear()} BiasAuditor.ai — All rights reserved.
+            </p>
+            <div className="flex items-center gap-4">
+              <Link href="/privacy">
+                <span className="text-xs text-gray-600 hover:text-cyan-400 transition-colors cursor-pointer">Privacy</span>
+              </Link>
+              <Link href="/terms">
+                <span className="text-xs text-gray-600 hover:text-cyan-400 transition-colors cursor-pointer">Terms</span>
+              </Link>
+              <Link href="/blog">
+                <span className="text-xs text-gray-600 hover:text-cyan-400 transition-colors cursor-pointer">Blog</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
