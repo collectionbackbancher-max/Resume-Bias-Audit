@@ -28,17 +28,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen bg-background antialiased">
+    <div className="min-h-screen bg-black antialiased">
       {/* ── Top Nav ── */}
-      <nav className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 w-full border-b border-cyan-500/20 bg-black/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-xl hover:opacity-80 transition-opacity">
-            <div className="bg-primary/10 p-2 rounded-xl">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+            <div className="bg-cyan-500/20 p-2 rounded-xl">
+              <ShieldCheck className="h-5 w-5 text-cyan-400" />
             </div>
-            <span className="hidden sm:inline-block">
-              BiasAuditor<span className="text-primary">.ai</span>
+            <span className="hidden sm:inline-block text-white">
+              BiasAuditor<span className="text-cyan-400">.ai</span>
             </span>
           </Link>
 
@@ -48,11 +48,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <Button
-                    variant={location === item.href ? "secondary" : "ghost"}
+                    variant="ghost"
                     size="sm"
                     className={cn(
-                      "gap-2 rounded-xl",
-                      location === item.href && "font-medium"
+                      "gap-2 rounded-xl text-gray-400 hover:text-white hover:bg-cyan-500/10",
+                      location === item.href && "text-cyan-400 bg-cyan-500/10 font-medium"
                     )}
                     data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                   >
@@ -62,7 +62,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
 
-              <div className="h-5 w-px bg-border mx-3" />
+              <div className="h-5 w-px bg-white/10 mx-3" />
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2.5">
@@ -70,14 +70,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <img
                       src={avatarUrl}
                       alt="avatar"
-                      className="w-7 h-7 rounded-full object-cover border border-border"
+                      className="w-7 h-7 rounded-full object-cover border border-cyan-500/30"
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs font-bold text-cyan-400">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm font-medium text-muted-foreground hidden lg:block" data-testid="text-username">
+                  <span className="text-sm font-medium text-gray-400 hidden lg:block" data-testid="text-username">
                     {displayName}
                   </span>
                 </div>
@@ -85,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   variant="outline"
                   size="sm"
                   onClick={() => logout()}
-                  className="gap-2 rounded-xl"
+                  className="gap-2 rounded-xl border-white/10 text-gray-400 hover:text-white hover:bg-white/5 hover:border-white/20 bg-transparent"
                   data-testid="button-logout"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -98,7 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Mobile hamburger */}
           {user && (
             <button
-              className="md:hidden p-2 rounded-xl hover:bg-secondary transition-colors"
+              className="md:hidden p-2 rounded-xl hover:bg-cyan-500/10 text-gray-400 hover:text-white transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
@@ -108,30 +108,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {!user && (
             <Link href="/login">
-              <Button size="sm" className="rounded-full px-5">Login / Sign Up</Button>
+              <Button size="sm" className="rounded-full px-5 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
+                Login / Sign Up
+              </Button>
             </Link>
           )}
         </div>
 
         {/* Mobile dropdown */}
         {isMobileMenuOpen && user && (
-          <div className="md:hidden border-b bg-background/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-1.5">
+          <div className="md:hidden border-b border-cyan-500/20 bg-black/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-1.5">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
                 <Button
-                  variant={location === item.href ? "secondary" : "ghost"}
-                  className="w-full justify-start gap-2 rounded-xl"
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start gap-2 rounded-xl text-gray-400 hover:text-white hover:bg-cyan-500/10",
+                    location === item.href && "text-cyan-400 bg-cyan-500/10"
+                  )}
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
                 </Button>
               </Link>
             ))}
-            <div className="h-px w-full bg-border my-1" />
-            <div className="px-1 py-0.5 text-xs text-muted-foreground">{user.email}</div>
+            <div className="h-px w-full bg-white/10 my-1" />
+            <div className="px-1 py-0.5 text-xs text-gray-500">{user.email}</div>
             <Button
               variant="ghost"
-              className="w-full justify-start gap-2 rounded-xl text-destructive hover:text-destructive"
+              className="w-full justify-start gap-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={() => logout()}
             >
               <LogOut className="h-4 w-4" />
