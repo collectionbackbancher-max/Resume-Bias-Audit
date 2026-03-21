@@ -8,6 +8,7 @@ packages = ["freetype", "glibcLocales", "tesseract", "poppler"]
 
 [[ports]]
 localPort = 5000
+externalPort = 80
 
 [env]
 PORT = "5000"
