@@ -52,8 +52,14 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
+    banner: {
+      js: `var __importMetaUrl=require("url").pathToFileURL(__filename).href;var __importMetaDirname=require("path").dirname(require("url").fileURLToPath(__importMetaUrl));`,
+    },
     define: {
       "process.env.NODE_ENV": '"production"',
+      "import.meta.url": "__importMetaUrl",
+      "import.meta.dirname": "__importMetaDirname",
+      "import.meta.filename": "__filename",
     },
     minify: true,
     external: externals,
