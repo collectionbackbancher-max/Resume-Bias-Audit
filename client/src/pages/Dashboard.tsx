@@ -1,5 +1,4 @@
 import { useResumes } from "@/hooks/use-resumes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link, useLocation } from "wouter";
@@ -14,8 +13,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  BarChart3,
   Zap,
+  BarChart3,
+  Target,
+  Plug,
+  ChevronRight,
+  Activity,
+  Upload,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -24,32 +28,85 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.4, delay: i * 0.08 } }),
+  hidden: { opacity: 0, y: 20 },
+  show: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.45, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] } }),
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  show: (i = 0) => ({ opacity: 1, transition: { duration: 0.4, delay: i * 0.07 } }),
 };
 
 function RiskBadge({ risk }: { risk: string | null }) {
-  if (!risk) return <Badge variant="secondary" className="text-xs bg-gray-500/20 text-gray-300">Pending</Badge>;
+  if (!risk) return <Badge variant="secondary" className="text-xs">Pending</Badge>;
   const styles: Record<string, string> = {
-    Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-    Moderate: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-    High: "bg-red-500/20 text-red-300 border-red-500/30",
+    Low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    Moderate: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    High: "bg-red-500/15 text-red-400 border-red-500/30",
   };
+  return <Badge className={`text-xs border ${styles[risk] || styles.Moderate}`}>{risk} Risk</Badge>;
+}
+
+function ScoreRing({ score }: { score: number | null }) {
+  if (score === null) return (
+    <div className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center">
+      <span className="text-xs text-muted-foreground">—</span>
+    </div>
+  );
+  const color = score >= 80 ? "#34d399" : score >= 60 ? "#facc15" : "#f87171";
+  const pct = score / 100;
+  const r = 18;
+  const circ = 2 * Math.PI * r;
   return (
-    <span className={`text-xs font-semibold px-3 py-1 rounded-lg border ${styles[risk] || styles.Moderate}`}>
-      {risk} Risk
-    </span>
+    <div className="relative w-12 h-12 shrink-0">
+      <svg width="48" height="48" className="-rotate-90">
+        <circle cx="24" cy="24" r={r} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+        <circle
+          cx="24" cy="24" r={r} fill="none"
+          stroke={color} strokeWidth="3"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ color }}>
+        {score}
+      </span>
+    </div>
   );
 }
 
-function ScoreCircle({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-sm text-gray-400 italic">—</span>;
-  const color = score >= 80 ? "text-emerald-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
+function StatCard({
+  label, value, suffix, icon: Icon, color, delay,
+}: {
+  label: string; value: string | number; suffix?: string; icon: any; color: string; delay: number;
+}) {
+  const colorMap: Record<string, { text: string; bg: string; border: string; glow: string }> = {
+    blue: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", glow: "hover:shadow-blue-500/10" },
+    cyan: { text: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", glow: "hover:shadow-cyan-500/10" },
+    emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", glow: "hover:shadow-emerald-500/10" },
+    red: { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", glow: "hover:shadow-red-500/10" },
+  };
+  const c = colorMap[color];
   return (
-    <div className="text-right">
-      <div className={`text-2xl font-display font-bold ${color}`}>{score}</div>
-      <div className="text-xs text-gray-500">/ 100</div>
-    </div>
+    <motion.div variants={fadeUp} initial="hidden" animate="show" custom={delay}>
+      <motion.div
+        whileHover={{ y: -4 }}
+        transition={{ duration: 0.2 }}
+        className={`relative rounded-2xl border ${c.border} bg-card/60 backdrop-blur-sm p-5 hover:shadow-lg ${c.glow} transition-all duration-200 overflow-hidden`}
+        data-testid={`stat-card-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      >
+        <div className={`absolute top-0 right-0 w-24 h-24 ${c.bg} rounded-full -translate-y-8 translate-x-8 blur-2xl`} />
+        <div className={`inline-flex p-2.5 rounded-xl ${c.bg} border ${c.border} mb-3`}>
+          <Icon className={`h-4 w-4 ${c.text}`} />
+        </div>
+        <div className={`text-3xl font-display font-bold ${c.text} leading-none`}>
+          {value}
+          {suffix && <span className="text-base text-muted-foreground font-normal ml-1">{suffix}</span>}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1.5 font-medium">{label}</p>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -57,10 +114,10 @@ export default function Dashboard() {
   const { data: resumes, isLoading, error } = useResumes();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  
+
   const { data: planData } = useQuery({
     queryKey: ["/api/user/plan"],
-    queryFn: () => apiRequest("GET", "/api/user/plan").then((res: any) => res.data),
+    queryFn: () => apiRequest("GET", "/api/user/plan").then((res: any) => res.data ?? res),
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
@@ -69,10 +126,8 @@ export default function Dashboard() {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <div className="text-center">
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity }}>
-            <Loader2 className="h-12 w-12 text-cyan-400 mx-auto mb-4" />
-          </motion.div>
-          <p className="text-gray-400">Loading your audits…</p>
+          <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading your workspace…</p>
         </div>
       </div>
     );
@@ -80,287 +135,306 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <div className="bg-red-500/20 p-4 rounded-full mb-4 border border-red-500/30">
-          <AlertCircle className="h-10 w-10 text-red-400" />
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-4">
+        <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20">
+          <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
-        <h2 className="text-xl font-bold mb-2 text-white">Failed to load dashboard</h2>
-        <p className="text-gray-400 mb-6">Could not fetch your analysis history.</p>
-        <Button onClick={() => window.location.reload()} className="bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">Try Again</Button>
+        <div>
+          <h2 className="font-bold mb-1">Failed to load dashboard</h2>
+          <p className="text-sm text-muted-foreground">Could not fetch your analysis history.</p>
+        </div>
+        <Button onClick={() => window.location.reload()} size="sm">Try Again</Button>
       </div>
     );
   }
 
-  const sortedResumes = [...(resumes || [])].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  const total = sortedResumes.length;
-  const avgScore = total
-    ? Math.round(sortedResumes.reduce((acc, r) => acc + (r.score || 0), 0) / total)
-    : null;
+  const sorted = [...(resumes || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const total = sorted.length;
+  const avgScore = total ? Math.round(sorted.reduce((acc, r) => acc + (r.score ?? 0), 0) / total) : null;
   const riskCounts = {
-    Low: sortedResumes.filter((r) => r.riskLevel === "Low").length,
-    Moderate: sortedResumes.filter((r) => r.riskLevel === "Moderate").length,
-    High: sortedResumes.filter((r) => r.riskLevel === "High").length,
+    Low: sorted.filter((r) => r.riskLevel === "Low").length,
+    Moderate: sorted.filter((r) => r.riskLevel === "Moderate").length,
+    High: sorted.filter((r) => r.riskLevel === "High").length,
   };
 
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  const planPct = planData ? Math.min((planData.scans_used / planData.scans_limit) * 100, 100) : 0;
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      {/* ── Page header ── */}
-      <motion.div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2" variants={fadeUp} initial="hidden" animate="show">
-        <div>
-          <h1 className="text-4xl font-display font-bold text-white">
-            Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">{firstName}</span> 👋
-          </h1>
-          <p className="text-gray-400 mt-2">Here's an overview of your bias audit activity.</p>
+    <div className="space-y-6 max-w-6xl mx-auto">
+
+      {/* ── Hero Header ── */}
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0}
+        className="relative rounded-2xl border border-border/50 bg-gradient-to-br from-card via-card/80 to-primary/5 p-7 overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full translate-x-24 -translate-y-24 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 w-32 h-32 bg-blue-500/5 rounded-full translate-y-12 blur-2xl" />
+
+        <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1 font-medium">{greeting} 👋</p>
+            <h1 className="text-3xl font-display font-bold">
+              Welcome back,{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">{firstName}</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              {total === 0
+                ? "Start your first bias audit to get insights."
+                : `You've audited ${total} resume${total === 1 ? "" : "s"}${avgScore !== null ? ` · avg. fairness score ${avgScore}/100` : ""}.`}
+            </p>
+          </div>
+
+          <div className="flex gap-2.5 shrink-0">
+            <Link href="/integrations">
+              <Button variant="outline" size="sm" className="gap-2 rounded-xl" data-testid="button-go-integrations">
+                <Plug className="h-3.5 w-3.5" /> Integrations
+              </Button>
+            </Link>
+            <Link href="/upload">
+              <Button size="sm" className="gap-2 rounded-xl shadow-lg shadow-primary/20" data-testid="button-new-audit">
+                <Plus className="h-4 w-4" /> New Audit
+              </Button>
+            </Link>
+          </div>
         </div>
-        <Link href="/upload">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              size="lg"
-              className="rounded-lg shadow-lg shadow-cyan-500/40 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold gap-2"
-              data-testid="button-new-audit"
-            >
-              <Plus className="h-5 w-5" /> New Audit
-            </Button>
-          </motion.div>
-        </Link>
       </motion.div>
 
-      {/* ── Plan Card ── */}
-      {planData && (
-        <motion.div custom={0} variants={fadeUp} initial="hidden" animate="show">
-          <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
-                  <Zap className="h-6 w-6 text-cyan-400" />
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Total Audits" value={total} icon={FileText} color="blue" delay={1} />
+        <StatCard label="Avg. Fairness" value={avgScore ?? "—"} suffix={avgScore !== null ? "/100" : ""} icon={TrendingUp} color="cyan" delay={2} />
+        <StatCard label="Low Risk" value={riskCounts.Low} icon={CheckCircle2} color="emerald" delay={3} />
+        <StatCard label="High Risk" value={riskCounts.High} icon={AlertTriangle} color="red" delay={4} />
+      </div>
+
+      {/* ── Main grid: audits + sidebar ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* ── Recent Audits ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-display font-semibold text-sm">Recent Audits</h2>
+            </div>
+            {sorted.length > 6 && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground h-7 px-2">
+                View all <ChevronRight className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+
+          {sorted.length === 0 ? (
+            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={6}>
+              <div className="rounded-2xl border-2 border-dashed border-border/60 bg-card/30 py-16 flex flex-col items-center text-center gap-5">
+                <div className="p-5 rounded-2xl bg-primary/10 border border-primary/20">
+                  <Upload className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white capitalize">{planData.plan} Plan</h3>
-                  <p className="text-sm text-gray-400">
-                    {planData.scans_used} / {planData.scans_limit} scans used this month
+                  <h3 className="font-display font-bold text-lg mb-1">No audits yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                    Upload a resume to detect unconscious bias markers and get AI-powered rewrite suggestions.
                   </p>
                 </div>
+                <Link href="/upload">
+                  <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" data-testid="button-first-audit">
+                    <Plus className="h-4 w-4" /> Start Your First Audit
+                  </Button>
+                </Link>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-cyan-400">{planData.scans_remaining}</div>
-                  <div className="text-xs text-gray-500">scans remaining</div>
+            </motion.div>
+          ) : (
+            <div className="space-y-2">
+              {sorted.slice(0, 8).map((resume, i) => (
+                <motion.div
+                  key={resume.id}
+                  variants={fadeUp}
+                  initial="hidden"
+                  animate="show"
+                  custom={i + 5}
+                >
+                  <motion.div
+                    onClick={() => setLocation(`/report/${resume.id}`)}
+                    whileHover={{ x: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="group flex items-center gap-4 p-4 rounded-xl border border-border/40 bg-card/50 hover:border-primary/30 hover:bg-card/80 hover:shadow-md hover:shadow-primary/5 cursor-pointer transition-all duration-200"
+                    data-testid={`card-resume-${resume.id}`}
+                  >
+                    {/* Score ring */}
+                    <ScoreRing score={resume.score ?? null} />
+
+                    {/* File info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate group-hover:text-primary transition-colors" data-testid={`text-filename-${resume.id}`}>
+                        {resume.filename}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Clock className="h-3 w-3 text-muted-foreground/60" />
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(resume.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Risk badge */}
+                    <div className="hidden sm:block shrink-0">
+                      <RiskBadge risk={resume.riskLevel ?? null} />
+                    </div>
+
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </motion.div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Sidebar ── */}
+        <div className="space-y-4">
+
+          {/* Plan usage card */}
+          <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5}>
+            <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <span className="text-sm font-semibold capitalize">
+                    {planData?.plan ?? "Free"} Plan
+                  </span>
                 </div>
-                {planData.plan !== "team" && (
+                {planData?.plan !== "team" && (
                   <Link href="/pricing">
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button size="sm" className="rounded-lg bg-cyan-500 hover:bg-cyan-600 text-black font-semibold gap-2">
-                        <ArrowRight className="h-4 w-4" /> Upgrade
-                      </Button>
-                    </motion.div>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-primary gap-1">
+                      Upgrade <ArrowRight className="h-3 w-3" />
+                    </Button>
                   </Link>
                 )}
               </div>
-            </div>
-            
-            {/* Progress bar */}
-            <div className="mt-4 h-2 bg-gray-700/30 rounded-full overflow-hidden border border-gray-600/30">
-              <motion.div
-                className="h-full bg-gradient-to-r from-cyan-400 to-blue-400"
-                initial={{ width: 0 }}
-                animate={{ width: `${(planData.scans_used / planData.scans_limit) * 100}%` }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-              />
-            </div>
-          </div>
-        </motion.div>
-      )}
 
-      {/* ── Stats cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Total Scans",
-            value: total,
-            icon: FileText,
-            gradient: "from-blue-500/20 to-blue-600/10",
-            borderColor: "border-blue-500/30",
-            textColor: "text-blue-400",
-            iconBg: "bg-blue-500/20",
-            delay: 0,
-          },
-          {
-            label: "Avg. Fairness Score",
-            value: avgScore !== null ? `${avgScore}` : "—",
-            suffix: avgScore !== null ? "/100" : "",
-            icon: TrendingUp,
-            gradient: "from-cyan-500/20 to-cyan-600/10",
-            borderColor: "border-cyan-500/30",
-            textColor: "text-cyan-400",
-            iconBg: "bg-cyan-500/20",
-            delay: 1,
-          },
-          {
-            label: "Low Risk",
-            value: riskCounts.Low,
-            icon: CheckCircle2,
-            gradient: "from-emerald-500/20 to-emerald-600/10",
-            borderColor: "border-emerald-500/30",
-            textColor: "text-emerald-400",
-            iconBg: "bg-emerald-500/20",
-            delay: 2,
-          },
-          {
-            label: "High Risk",
-            value: riskCounts.High,
-            icon: AlertTriangle,
-            gradient: "from-red-500/20 to-red-600/10",
-            borderColor: "border-red-500/30",
-            textColor: "text-red-400",
-            iconBg: "bg-red-500/20",
-            delay: 3,
-          },
-        ].map((stat) => (
-          <motion.div key={stat.label} custom={stat.delay} variants={fadeUp} initial="hidden" animate="show">
-            <motion.div 
-              whileHover={{ y: -8, transition: { duration: 0.2 } }}
-              className={`bg-gradient-to-br ${stat.gradient} backdrop-blur border ${stat.borderColor} rounded-2xl p-6 hover:border-opacity-100 border-opacity-70 transition-all group cursor-default h-full`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-lg ${stat.iconBg} group-hover:shadow-lg group-hover:shadow-current/40 transition-all`}>
-                  <stat.icon className={`h-5 w-5 ${stat.textColor}`} />
-                </div>
-              </div>
               <div className="space-y-2">
-                <div className={`text-3xl font-display font-bold ${stat.textColor}`}>
-                  {stat.value}
-                  {stat.suffix && <span className="text-lg text-gray-500 ml-1">{stat.suffix}</span>}
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Scans used</span>
+                  <span className="font-medium text-foreground">
+                    {planData?.scans_used ?? 0} / {planData?.scans_limit ?? 5}
+                  </span>
                 </div>
-                <p className="text-sm text-gray-400 font-medium">{stat.label}</p>
+                <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full ${planPct >= 90 ? "bg-red-400" : planPct >= 70 ? "bg-yellow-400" : "bg-primary"}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${planPct}%` }}
+                    transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{planData?.scans_remaining ?? (5 - (planData?.scans_used ?? 0))}</span> scans remaining this month
+                </p>
               </div>
-            </motion.div>
-          </motion.div>
-        ))}
-      </div>
 
-      {/* ── Risk breakdown bar ── */}
-      {total > 0 && (
-        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
-          <div className="bg-gradient-to-br from-slate-900/50 to-black border border-cyan-500/20 rounded-2xl p-6 hover:shadow-lg hover:shadow-cyan-500/20 transition-all">
-            <div className="flex items-center gap-2 mb-6">
-              <BarChart3 className="h-5 w-5 text-cyan-400" />
-              <h3 className="text-lg font-display font-bold text-white">Risk Distribution</h3>
-            </div>
-            <div className="space-y-5">
-              {[
-                { label: "Low Risk", count: riskCounts.Low, color: "from-emerald-400 to-emerald-500", barColor: "bg-emerald-500" },
-                { label: "Moderate Risk", count: riskCounts.Moderate, color: "from-yellow-400 to-yellow-500", barColor: "bg-yellow-500" },
-                { label: "High Risk", count: riskCounts.High, color: "from-red-400 to-red-500", barColor: "bg-red-500" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-4">
-                  <span className="text-sm text-gray-400 w-24 shrink-0">{item.label}</span>
-                  <div className="flex-1 h-3 bg-gray-700/30 rounded-full overflow-hidden border border-gray-600/30">
-                    <motion.div
-                      className={`h-full rounded-full bg-gradient-to-r ${item.color}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: total > 0 ? `${(item.count / total) * 100}%` : "0%" }}
-                      transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-                    />
-                  </div>
-                  <span className={`text-sm font-bold w-8 text-right text-gray-300`}>{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── Recent Audits ── */}
-      <div>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-2xl font-display font-bold text-white">Recent Audits</h2>
-          {sortedResumes.length > 5 && (
-            <Button variant="ghost" size="sm" className="text-cyan-400 hover:bg-cyan-500/10 gap-1">
-              View all <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-
-        {sortedResumes.length === 0 ? (
-          <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="border-2 border-dashed border-cyan-500/30 rounded-2xl py-16 flex flex-col items-center text-center bg-gradient-to-br from-cyan-500/5 to-blue-500/5">
-            <div className="bg-cyan-500/20 p-5 rounded-2xl mb-5 border border-cyan-500/30">
-              <FileText className="h-12 w-12 text-cyan-400" />
-            </div>
-            <h3 className="text-xl font-display font-bold text-white mb-2">No audits yet</h3>
-            <p className="text-gray-400 mb-8 max-w-xs text-sm leading-relaxed">
-              Upload your first resume to start detecting unconscious bias and get actionable AI suggestions.
-            </p>
-            <Link href="/upload">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button className="rounded-lg gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold shadow-lg shadow-cyan-500/30" data-testid="button-first-audit">
-                  <Plus className="h-5 w-5" /> Start Your First Audit
+              <Link href="/upload">
+                <Button className="w-full gap-2 rounded-xl text-sm" size="sm" data-testid="button-sidebar-audit">
+                  <Plus className="h-3.5 w-3.5" /> New Audit
                 </Button>
-              </motion.div>
-            </Link>
+              </Link>
+            </div>
           </motion.div>
-        ) : (
-          <div className="space-y-3">
-            {sortedResumes.map((resume, i) => (
-              <motion.div key={resume.id} custom={i + 5} variants={fadeUp} initial="hidden" animate="show">
-                <motion.div
-                  onClick={() => setLocation(`/report/${resume.id}`)}
-                  whileHover={{ x: 8, transition: { duration: 0.2 } }}
-                  className="group bg-gradient-to-br from-slate-900/50 to-black hover:from-slate-900/70 hover:to-slate-950 border border-cyan-500/20 hover:border-cyan-500/50 rounded-2xl px-6 py-5 flex items-center justify-between cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/20"
-                  data-testid={`card-resume-${resume.id}`}
-                >
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="bg-cyan-500/20 group-hover:bg-cyan-500/30 p-3 rounded-xl transition-colors shrink-0 border border-cyan-500/30 group-hover:border-cyan-500/50">
-                      <FileText className="h-5 w-5 text-cyan-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-white truncate max-w-[200px] sm:max-w-xs group-hover:text-cyan-300 transition-colors" data-testid={`text-filename-${resume.id}`}>
-                        {resume.filename}
-                      </h3>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Clock className="h-3.5 w-3.5 text-gray-500" />
-                        <p className="text-xs text-gray-500">
-                          {formatDistanceToNow(new Date(resume.createdAt), { addSuffix: true })}
-                        </p>
+
+          {/* Risk breakdown */}
+          {total > 0 && (
+            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={6}>
+              <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm font-semibold">Risk Distribution</span>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { label: "Low", count: riskCounts.Low, color: "bg-emerald-400", text: "text-emerald-400" },
+                    { label: "Moderate", count: riskCounts.Moderate, color: "bg-yellow-400", text: "text-yellow-400" },
+                    { label: "High", count: riskCounts.High, color: "bg-red-400", text: "text-red-400" },
+                  ].map((item) => (
+                    <div key={item.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{item.label} Risk</span>
+                        <span className={`font-semibold ${item.text}`}>{item.count}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                        <motion.div
+                          className={`h-full rounded-full ${item.color}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: total > 0 ? `${(item.count / total) * 100}%` : "0%" }}
+                          transition={{ duration: 0.7, delay: 0.5, ease: "easeOut" }}
+                        />
                       </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
 
-                  <div className="flex items-center gap-5 shrink-0">
-                    <div className="hidden sm:block">
-                      <RiskBadge risk={resume.riskLevel} />
+                {/* Mini score display */}
+                {avgScore !== null && (
+                  <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Avg. Fairness Score</span>
+                    <div className="flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-primary" />
+                      <span className={`text-sm font-bold ${avgScore >= 80 ? "text-emerald-400" : avgScore >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+                        {avgScore}/100
+                      </span>
                     </div>
-                    <div className="hidden sm:block">
-                      <ScoreCircle score={resume.score} />
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-gray-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
                   </div>
-                </motion.div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+                )}
+              </div>
+            </motion.div>
+          )}
 
-      {/* ── Quick tip ── */}
-      {total > 0 && (
-        <motion.div custom={7} variants={fadeUp} initial="hidden" animate="show">
-          <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6 flex gap-4 items-start hover:shadow-lg hover:shadow-cyan-500/20 transition-all group">
-            <div className="bg-cyan-500/20 group-hover:bg-cyan-500/30 p-3 rounded-lg shrink-0 border border-cyan-500/30 group-hover:border-cyan-500/50 transition-colors">
-              <Zap className="h-5 w-5 text-cyan-400" />
+          {/* Quick actions */}
+          <motion.div variants={fadeUp} initial="hidden" animate="show" custom={7}>
+            <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</p>
+              {[
+                { label: "Upload Resume", icon: Upload, href: "/upload", desc: "Single or bulk scan" },
+                { label: "ATS Integrations", icon: Plug, href: "/integrations", desc: "Connect Greenhouse" },
+                { label: "View Pricing", icon: ShieldCheck, href: "/pricing", desc: "Upgrade your plan" },
+              ].map((action) => (
+                <Link key={action.href} href={action.href}>
+                  <motion.div
+                    whileHover={{ x: 3 }}
+                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer group"
+                    data-testid={`quick-action-${action.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                      <action.icon className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-none mb-0.5">{action.label}</p>
+                      <p className="text-xs text-muted-foreground">{action.desc}</p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                  </motion.div>
+                </Link>
+              ))}
             </div>
-            <div>
-              <p className="font-semibold text-white mb-2">Pro Tip: Aim for a score above 85</p>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                Resumes scoring 85+ show minimal bias indicators. Use the AI suggestions in each report to improve language neutrality and create more inclusive job descriptions.
+          </motion.div>
+
+          {/* Pro tip */}
+          <motion.div variants={fadeIn} initial="hidden" animate="show" custom={8}>
+            <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-semibold text-primary">Pro Tip</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Resumes scoring <span className="text-foreground font-medium">85+</span> show minimal bias. Use AI suggestions in each report to improve language neutrality.
               </p>
             </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        </div>
+      </div>
     </div>
   );
 }

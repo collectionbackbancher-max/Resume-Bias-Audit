@@ -40,20 +40,22 @@ export const isAuthenticated: RequestHandler = async (req: any, res, next) => {
   const email = u.email || "";
   const name = (u.user_metadata?.full_name || u.user_metadata?.name || email.split("@")[0]) as string;
 
-  req.user = { id: u.id, email, name };
-
-  // Ensure local user record exists
+  // Ensure local user record exists; use resolved DB id for all operations
+  let resolvedId = u.id;
   try {
-    await authStorage.upsertUser({
+    const dbUser = await authStorage.upsertUser({
       id: u.id,
       email,
       firstName: u.user_metadata?.full_name?.split(" ")[0] || name,
       lastName: u.user_metadata?.full_name?.split(" ").slice(1).join(" ") || undefined,
       profileImageUrl: u.user_metadata?.avatar_url || undefined,
     });
+    resolvedId = dbUser.id;
   } catch (err) {
     console.warn("[supabaseAuth] upsert user failed:", err);
   }
+
+  req.user = { id: resolvedId, email, name };
 
   next();
 };
