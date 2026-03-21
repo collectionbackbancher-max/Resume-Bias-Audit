@@ -36,11 +36,17 @@ The application provides resume scanning, bias detection, and reporting features
 - **Mechanism**: JWT tokens for stateless session management.
 - **Security**: All protected API routes are secured with an `isAuthenticated` middleware.
 
+### ATS Integration
+- **Integrations Page**: `/integrations` — connect ATS accounts, import candidates, run bulk bias analysis.
+- **Greenhouse Support**: Mock Greenhouse API (real-ready structure). Connect via API key, fetch candidates, scan all resumes in one click.
+- **Modular Design**: ATS service logic structured for easy addition of Lever, Workday, BambooHR, etc.
+- **API Routes**: `POST /api/ats/connect`, `DELETE /api/ats/disconnect`, `GET /api/ats/status`, `GET /api/ats/candidates`, `POST /api/ats/scan`.
+
 ### Database
 - **Type**: PostgreSQL.
 - **ORM**: Drizzle ORM.
 - **Schema**: Defined in `shared/schema.ts` and `shared/models/`.
-- **Key Tables**: `users` (profiles), `resumes` (analysis data).
+- **Key Tables**: `users` (profiles), `resumes` (analysis data), `ats_connections` (ATS API keys per user).
 
 ### Pricing & Subscription
 - **Tiers**: Free, Starter, and Team plans with varying scan limits, features (e.g., bulk uploads, PDF downloads), and pricing.

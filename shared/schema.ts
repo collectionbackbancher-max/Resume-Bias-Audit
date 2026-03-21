@@ -30,12 +30,24 @@ export const scans = pgTable("scans", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const atsConnections = pgTable("ats_connections", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => authUsers.id),
+  provider: text("provider").notNull().default("greenhouse"),
+  apiKey: text("api_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserMetadataSchema = createInsertSchema(usersMetadata).omit({ id: true, createdAt: true });
 export const insertScanSchema = createInsertSchema(scans).omit({ id: true, createdAt: true });
+export const insertAtsConnectionSchema = createInsertSchema(atsConnections).omit({ id: true, createdAt: true });
 
 export type UserMetadata = typeof usersMetadata.$inferSelect;
 export type Scan = typeof scans.$inferSelect;
 export type InsertScan = z.infer<typeof insertScanSchema>;
+
+export type AtsConnection = typeof atsConnections.$inferSelect;
+export type InsertAtsConnection = z.infer<typeof insertAtsConnectionSchema>;
 
 // Alias for existing code compatibility
 export const resumes = scans;

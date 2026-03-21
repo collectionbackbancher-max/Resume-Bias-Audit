@@ -640,5 +640,149 @@ export async function registerRoutes(
     }
   });
 
+  // ── ATS Integration Routes ─────────────────────────────────────────────────
+
+  // Mock Greenhouse candidate data (structured for real API replacement)
+  function getMockCandidates() {
+    return [
+      { id: "c001", name: "Alex Johnson", resume_url: "https://example.com/resumes/alex.pdf", job_title: "Software Engineer", applied_at: "2024-11-01" },
+      { id: "c002", name: "Jordan Smith", resume_url: "https://example.com/resumes/jordan.pdf", job_title: "Product Manager", applied_at: "2024-11-03" },
+      { id: "c003", name: "Casey Williams", resume_url: "https://example.com/resumes/casey.pdf", job_title: "Data Analyst", applied_at: "2024-11-05" },
+      { id: "c004", name: "Riley Brown", resume_url: "https://example.com/resumes/riley.pdf", job_title: "UX Designer", applied_at: "2024-11-07" },
+      { id: "c005", name: "Morgan Davis", resume_url: "https://example.com/resumes/morgan.pdf", job_title: "DevOps Engineer", applied_at: "2024-11-09" },
+    ];
+  }
+
+  // Mock resume text per candidate (simulates downloaded PDF content)
+  function getMockResumeText(candidateId: string): string {
+    const texts: Record<string, string> = {
+      c001: "Experienced software engineer with strong managerial skills. Aggressive problem solver who dominates in team settings. Led a team of guys on multiple successful projects. Recent MIT graduate, class of 2022.",
+      c002: "Dynamic product manager with proven track record. Native English speaker. Energetic young professional eager to make his mark. Played college football which built strong leadership skills.",
+      c003: "Detail-oriented data analyst. She brings meticulous attention to data quality. Graduated summa cum laude in 2019. Experienced with SQL, Python, and R. Strong communicator and collaborative team player.",
+      c004: "Creative UX designer with 5+ years experience. Ninja at user research and prototyping. Digital native who grew up designing interfaces. Passionate about inclusive design principles.",
+      c005: "Senior DevOps engineer with rock-solid infrastructure skills. He thrives under pressure and dominates complex deployments. 20+ years of experience. Looking for a company that values his expertise.",
+    };
+    return texts[candidateId] || "Professional with diverse background and strong technical skills.";
+  }
+
+  // POST /api/ats/connect — save ATS API key
+  app.post("/api/ats/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const { apiKey, provider = "greenhouse" } = req.body;
+      if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length < 4) {
+        return res.status(400).json({ message: "A valid API key is required." });
+      }
+      await storage.upsertAtsConnection({
+        userId: req.user.id,
+        provider,
+        apiKey: apiKey.trim(),
+      });
+      res.json({ status: "connected", provider });
+    } catch (err) {
+      console.error("ATS connect error:", err);
+      res.status(500).json({ message: "Failed to save ATS connection." });
+    }
+  });
+
+  // DELETE /api/ats/disconnect — remove ATS connection
+  app.delete("/api/ats/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteAtsConnection(req.user.id);
+      res.json({ status: "disconnected" });
+    } catch (err) {
+      console.error("ATS disconnect error:", err);
+      res.status(500).json({ message: "Failed to disconnect ATS." });
+    }
+  });
+
+  // GET /api/ats/status — check if ATS is connected
+  app.get("/api/ats/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const conn = await storage.getAtsConnection(req.user.id);
+      if (conn) {
+        res.json({ connected: true, provider: conn.provider, connectedAt: conn.createdAt });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (err) {
+      res.status(500).json({ message: "Failed to check ATS status." });
+    }
+  });
+
+  // GET /api/ats/candidates — fetch candidates (mock Greenhouse, real-ready)
+  app.get("/api/ats/candidates", isAuthenticated, async (req: any, res) => {
+    try {
+      const conn = await storage.getAtsConnection(req.user.id);
+      if (!conn) {
+        return res.status(403).json({ message: "No ATS connected. Please connect your Greenhouse account first." });
+      }
+
+      // Real Greenhouse API call would be:
+      // const response = await fetch("https://harvest.greenhouse.io/v1/candidates", {
+      //   headers: { "Authorization": `Basic ${Buffer.from(conn.apiKey + ":").toString("base64")}` }
+      // });
+      // const data = await response.json();
+
+      const candidates = getMockCandidates();
+      res.json(candidates);
+    } catch (err) {
+      console.error("ATS candidates error:", err);
+      res.status(500).json({ message: "Failed to fetch candidates." });
+    }
+  });
+
+  // POST /api/ats/scan — run bias analysis on all ATS candidates
+  app.post("/api/ats/scan", isAuthenticated, async (req: any, res) => {
+    try {
+      const conn = await storage.getAtsConnection(req.user.id);
+      if (!conn) {
+        return res.status(403).json({ message: "No ATS connected." });
+      }
+
+      const candidates = getMockCandidates();
+
+      const results = await Promise.allSettled(
+        candidates.map(async (candidate) => {
+          try {
+            const resumeText = getMockResumeText(candidate.id);
+            const analysis = analyzeBias(resumeText);
+            return {
+              candidate_id: candidate.id,
+              name: candidate.name,
+              job_title: candidate.job_title,
+              bias_score: analysis.score,
+              risk_level: analysis.riskLevel,
+              flags: analysis.flags.map((f: any) => ({
+                phrase: f.phrase || f.term,
+                category: f.category,
+                severity: f.severity,
+                suggestion: f.suggestion,
+              })),
+            };
+          } catch (err: any) {
+            return {
+              candidate_id: candidate.id,
+              name: candidate.name,
+              job_title: candidate.job_title,
+              bias_score: null,
+              risk_level: "Error",
+              flags: [],
+              error: err.message,
+            };
+          }
+        })
+      );
+
+      const output = results.map((r) =>
+        r.status === "fulfilled" ? r.value : { candidate_id: "unknown", name: "Unknown", bias_score: null, risk_level: "Error", flags: [] }
+      );
+
+      res.json(output);
+    } catch (err) {
+      console.error("ATS scan error:", err);
+      res.status(500).json({ message: "Failed to scan candidates." });
+    }
+  });
+
   return httpServer;
 }

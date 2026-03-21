@@ -1,0 +1,161 @@
+Add ATS integration to the SaaS "AI Resume Bias Auditor".
+
+Target ATS: Greenhouse (mock + real-ready structure)
+
+========================
+GOAL
+========================
+
+Allow users to:
+1. Connect their ATS account
+2. Fetch candidate resumes
+3. Run bias analysis
+4. View results inside dashboard
+
+========================
+BACKEND (FastAPI)
+========================
+
+Create new router: ats.py
+
+------------------------
+1. CONNECT ATS (MOCK FIRST)
+------------------------
+
+POST /connect-ats
+
+- Accept API key (for Greenhouse)
+- Store securely in database (encrypted or placeholder)
+- Link ATS account to user_id
+
+Response:
+{
+  "status": "connected"
+}
+
+------------------------
+2. FETCH CANDIDATES
+------------------------
+
+GET /ats/candidates
+
+For now:
+- Mock response (simulate Greenhouse API)
+
+Return:
+[
+  {
+    "id": "123",
+    "name": "John Doe",
+    "resume_url": "https://example.com/resume.pdf"
+  }
+]
+
+Structure code so it can later call real API:
+https://harvest.greenhouse.io/v1/candidates
+
+------------------------
+3. SCAN ATS CANDIDATES
+------------------------
+
+POST /ats/scan-candidates
+
+- Fetch candidates
+- Download resume from resume_url
+- Run full pipeline:
+    extract → clean → parse → bias detect
+
+Return:
+[
+  {
+    "candidate_id": "",
+    "name": "",
+    "bias_score": number,
+    "risk_level": "",
+    "flags": []
+  }
+]
+
+Handle failures per candidate.
+
+------------------------
+4. SECURITY
+------------------------
+
+- Require authenticated user (Supabase JWT)
+- Only allow access to user's ATS data
+
+========================
+DATABASE UPDATE
+========================
+
+Create new table: ats_connections
+
+Fields:
+- id
+- user_id
+- provider ("greenhouse")
+- api_key (encrypted or placeholder)
+- created_at
+
+========================
+FRONTEND (Next.js)
+========================
+
+Create ATS Integration Page:
+
+/integrations
+
+------------------------
+1. CONNECT UI
+------------------------
+
+- Input field: API Key
+- Button: "Connect Greenhouse"
+- Show status: Connected / Not Connected
+
+------------------------
+2. IMPORT CANDIDATES
+------------------------
+
+- Button: "Fetch Candidates"
+- Display list:
+    - Name
+    - Resume link
+
+------------------------
+3. SCAN BUTTON
+------------------------
+
+- Button: "Scan All Candidates"
+
+Show results in table:
+- Candidate Name
+- Bias Score
+- Risk Level
+- View Details
+
+========================
+UI FEATURES
+========================
+
+- Loading states for API calls
+- Error handling messages
+- Clean SaaS dashboard design
+
+========================
+IMPORTANT NOTES
+========================
+
+- Keep ATS logic modular for future providers
+- Use service layer (ats_service.py)
+- Do NOT hardcode API keys
+- Prepare for OAuth in future
+
+========================
+FUTURE READY
+========================
+
+Structure code so you can later:
+- Replace mock with real Greenhouse API
+- Add other ATS providers (Lever, Workday)

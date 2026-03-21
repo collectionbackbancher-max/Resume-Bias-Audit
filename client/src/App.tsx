@@ -19,6 +19,7 @@ import BlogPost from "@/pages/BlogPost";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
+import Integrations from "@/pages/Integrations";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -55,6 +56,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/upload" component={Upload} />
         <Route path="/report/:id" component={Report} />
+        <Route path="/integrations" component={Integrations} />
         <Route path="/login" component={Dashboard} />
         <Route path="/signup" component={Dashboard} />
         <Route component={NotFound} />

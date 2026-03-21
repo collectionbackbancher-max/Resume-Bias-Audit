@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { scans, usersMetadata, type InsertScan, type Scan, type UserMetadata } from "@shared/schema";
+import { scans, usersMetadata, atsConnections, type InsertScan, type Scan, type UserMetadata, type AtsConnection, type InsertAtsConnection } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -12,6 +12,11 @@ export interface IStorage {
   createUserMetadata(user: { userId: string, email: string }): Promise<UserMetadata>;
   incrementScanCount(userId: string, count: number): Promise<void>;
   
+  // ATS connection methods
+  getAtsConnection(userId: string): Promise<AtsConnection | undefined>;
+  upsertAtsConnection(connection: InsertAtsConnection): Promise<AtsConnection>;
+  deleteAtsConnection(userId: string): Promise<void>;
+
   // Compatibility methods
   getUserResumes(userId: string): Promise<Scan[]>;
   getResume(id: number): Promise<Scan | undefined>;
@@ -74,6 +79,29 @@ export class DatabaseStorage implements IStorage {
           .where(eq(usersMetadata.userId, userId));
       }
     }
+  }
+
+  // ATS connections
+  async getAtsConnection(userId: string): Promise<AtsConnection | undefined> {
+    const [conn] = await db.select().from(atsConnections).where(eq(atsConnections.userId, userId));
+    return conn;
+  }
+
+  async upsertAtsConnection(connection: InsertAtsConnection): Promise<AtsConnection> {
+    const existing = await this.getAtsConnection(connection.userId);
+    if (existing) {
+      const [updated] = await db.update(atsConnections)
+        .set({ apiKey: connection.apiKey, provider: connection.provider })
+        .where(eq(atsConnections.userId, connection.userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(atsConnections).values(connection).returning();
+    return created;
+  }
+
+  async deleteAtsConnection(userId: string): Promise<void> {
+    await db.delete(atsConnections).where(eq(atsConnections.userId, userId));
   }
 
   // Compatibility
