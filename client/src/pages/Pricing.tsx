@@ -182,19 +182,12 @@ export default function Pricing() {
                     </motion.div>
                   </Link>
                 ) : user ? (
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">
-                    <PaddleCheckout
-                      planName={plan.name.toLowerCase() as "starter" | "team"}
-                      buttonText={plan.cta}
-                      variant={plan.popular ? "default" : "outline"}
-                      size="lg"
-                      className={`w-full rounded-lg font-semibold h-12 ${
-                        plan.popular
-                          ? "bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-black"
-                          : "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
-                      }`}
-                    />
-                  </motion.div>
+                  <PaddleCheckout
+                    planName={plan.name.toLowerCase() as "starter" | "team"}
+                    buttonText={plan.cta}
+                    variant={plan.popular ? "default" : "outline"}
+                    size="lg"
+                  />
                 ) : (
                   <Link href="/signup">
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">

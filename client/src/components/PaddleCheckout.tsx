@@ -20,21 +20,25 @@ export function PaddleCheckout({
   planName,
   buttonText,
   variant = "default",
-  size = "default",
+  size = "lg",
   className = "",
 }: PaddleCheckoutProps) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Load Paddle script
-    if (!window.Paddle) {
+    // Load Paddle script if not already loaded
+    if (typeof window !== "undefined" && !window.Paddle) {
       const script = document.createElement("script");
       script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
       script.async = true;
       script.onload = () => {
         if (window.Paddle) {
+          console.log("[Paddle] Script loaded, initializing with token");
           window.Paddle.Setup({ token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN });
         }
+      };
+      script.onerror = () => {
+        console.error("[Paddle] Failed to load Paddle script");
       };
       document.head.appendChild(script);
     }
