@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 interface PaddleCheckoutProps {
   planName: "starter" | "team";
@@ -25,10 +26,13 @@ export function PaddleCheckout({
     if (!user) return;
     setLoading(true);
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/paddle/create-checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({ planName }),
       });
 
