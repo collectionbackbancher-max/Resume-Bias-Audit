@@ -13,6 +13,9 @@ export const usersMetadata = pgTable("users_metadata", {
   subscriptionPlan: text("subscription_plan").default("free").notNull(),
   scansUsed: integer("scans_used").default(0).notNull(),
   lastScanReset: timestamp("last_scan_reset").defaultNow().notNull(),
+  subscriptionId: varchar("subscription_id"),
+  customerId: varchar("customer_id"),
+  paddleStatus: text("paddle_status").default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

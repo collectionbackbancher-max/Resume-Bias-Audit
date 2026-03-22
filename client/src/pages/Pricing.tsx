@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
+import { PaddleCheckout } from "@/components/PaddleCheckout";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -165,20 +166,51 @@ export default function Pricing() {
                 </div>
 
                 {/* CTA */}
-                <Link href={plan.price === 0 ? "/signup" : user ? "/" : "/signup"}>
+                {plan.price === 0 ? (
+                  <Link href={user ? "/" : "/signup"}>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">
+                      <Button
+                        size="lg"
+                        className={`w-full rounded-lg font-semibold h-12 ${
+                          plan.popular
+                            ? "bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-black"
+                            : "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
+                        }`}
+                      >
+                        {plan.cta}
+                      </Button>
+                    </motion.div>
+                  </Link>
+                ) : user ? (
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">
-                    <Button
+                    <PaddleCheckout
+                      planName={plan.name.toLowerCase() as "starter" | "team"}
+                      buttonText={plan.cta}
+                      variant={plan.popular ? "default" : "outline"}
                       size="lg"
                       className={`w-full rounded-lg font-semibold h-12 ${
                         plan.popular
                           ? "bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-black"
                           : "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
                       }`}
-                    >
-                      {plan.cta}
-                    </Button>
+                    />
                   </motion.div>
-                </Link>
+                ) : (
+                  <Link href="/signup">
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full">
+                      <Button
+                        size="lg"
+                        className={`w-full rounded-lg font-semibold h-12 ${
+                          plan.popular
+                            ? "bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-black"
+                            : "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
+                        }`}
+                      >
+                        {plan.cta}
+                      </Button>
+                    </motion.div>
+                  </Link>
+                )}
               </div>
             </motion.div>
           ))}

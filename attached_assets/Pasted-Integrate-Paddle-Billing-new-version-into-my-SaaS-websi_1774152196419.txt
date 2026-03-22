@@ -1,0 +1,111 @@
+Integrate Paddle Billing (new version) into my SaaS website (biasauditorai.com).
+
+Tech stack:
+
+* Frontend: React / Next.js
+* Backend: Node.js (API routes)
+* Auth: Supabase
+
+Goal:
+
+* Add subscription payments using Paddle
+* Plans:
+
+  * Starter: $9/month
+  * Team: $29/month
+* Free plan remains without payment
+
+IMPORTANT:
+
+* Use the NEW Paddle Billing system (not Paddle Classic)
+* Do NOT use vendor_id or old public key system
+
+Requirements:
+
+1. Environment Variables
+   Use the new Paddle setup:
+
+* PADDLE_API_KEY (server-side) - apikey_01km9tev63fyf7nf5css1ppgk5
+* PADDLE_CLIENT_TOKEN (frontend) - live_b8085022eeeff1a1fd9cfc1b07c
+* PADDLE_PRICE_ID_STARTER - pri_01km9t4xk7m26kpcxgk4nqff0v
+* PADDLE_PRICE_ID_TEAM - pri_01km9t33f2hxhj7qeczgkpzxvp
+* PADDLE_WEBHOOK_SECRET - ntfset_01km9v2jvv3wadsswyjvq2ey99
+
+2. Frontend Integration
+
+* Install and use Paddle.js (new version)
+* Initialize Paddle using client-side token
+* Add buttons:
+
+  * "Upgrade to Starter"
+  * "Upgrade to Team"
+* On click → open Paddle checkout
+* Pass correct price_id
+* Pass logged-in user email from Supabase
+
+3. Checkout Flow
+
+* Use Paddle checkout overlay
+* Ensure user email is prefilled
+* Attach metadata (user_id from Supabase)
+
+4. Backend Setup
+
+* Create endpoint: /api/paddle/webhook
+* Verify webhook using PADDLE_WEBHOOK_SECRET
+* Handle events:
+
+  * transaction.completed
+  * subscription.created
+  * subscription.updated
+  * subscription.canceled
+
+5. Database (Supabase)
+   Update users table with:
+
+* plan (free, starter, team)
+* subscription_id
+* customer_id
+* status (active, canceled)
+
+On webhook success:
+
+* If Starter price → set plan = "starter"
+* If Team price → set plan = "team"
+* Store Paddle subscription_id
+
+6. Access Control
+
+* Free users:
+
+  * 5 scans/month
+* Starter users:
+
+  * 100 scans/month
+* Team users:
+
+  * 500 scans/month + advanced features (ATS integrations, priority processing)
+
+Restrict features based on plan stored in database.
+
+7. Webhook Setup (Paddle Dashboard)
+
+* Create webhook endpoint:
+  https://biasauditorai.com/api/paddle/webhook
+* Copy webhook secret and store in env
+
+8. Testing
+
+* Use Paddle sandbox environment
+* Test successful payment
+* Confirm webhook updates user plan in Supabase
+
+9. Output Code
+
+* React component for checkout buttons
+* Paddle initialization code
+* Node.js webhook handler
+* Supabase update queries
+* Clear instructions to replace price IDs and tokens
+
+Make code clean, production-ready, and beginner-friendly.

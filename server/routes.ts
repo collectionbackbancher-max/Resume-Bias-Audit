@@ -806,5 +806,61 @@ export async function registerRoutes(
     }
   });
 
+  // ── Paddle webhook endpoint ─────────────────────────────────────────────────────
+  app.post("/api/paddle/webhook", async (req, res) => {
+    try {
+      const { verifyPaddleWebhook, parsePaddleEvent, getPlanFromPriceId } = await import("./paddle");
+      const { paddleStorage } = await import("./replit_integrations/paddle/storage");
+
+      const signature = req.headers["paddle-signature"] as string;
+      const body = JSON.stringify(req.body);
+
+      // Verify webhook signature
+      if (!verifyPaddleWebhook(body, signature, process.env.PADDLE_WEBHOOK_SECRET!)) {
+        console.warn("Invalid Paddle webhook signature");
+        return res.status(401).json({ error: "Invalid signature" });
+      }
+
+      const event = parsePaddleEvent(req.body);
+
+      // Handle transaction.completed (new purchase)
+      if (event.eventType === "transaction.completed" && event.userId) {
+        const plan = getPlanFromPriceId(event.priceId!);
+        if (plan && event.customerId && event.subscriptionId) {
+          await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId, event.customerId);
+          console.log(`[Paddle] User ${event.userId} upgraded to ${plan}`);
+        }
+      }
+
+      // Handle subscription.created
+      if (event.eventType === "subscription.created" && event.userId && event.customerId) {
+        const plan = getPlanFromPriceId(event.priceId!);
+        if (plan) {
+          await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId!, event.customerId);
+          console.log(`[Paddle] Subscription created for ${event.userId}`);
+        }
+      }
+
+      // Handle subscription.updated
+      if (event.eventType === "subscription.updated" && event.subscriptionId) {
+        if (event.status === "active") {
+          await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "active");
+          console.log(`[Paddle] Subscription ${event.subscriptionId} reactivated`);
+        }
+      }
+
+      // Handle subscription.canceled
+      if (event.eventType === "subscription.canceled" && event.subscriptionId) {
+        await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "canceled");
+        console.log(`[Paddle] Subscription ${event.subscriptionId} canceled, plan reverted to free`);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Paddle webhook error:", err);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
   return httpServer;
 }
