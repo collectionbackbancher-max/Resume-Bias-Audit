@@ -41,8 +41,23 @@ export function PaddleCheckout({
   }, []);
 
   const handleCheckout = async () => {
-    if (!window.Paddle || !user?.email) {
-      alert("Unable to open checkout. Please try again.");
+    console.log("[Paddle] Checkout clicked", { planName, userEmail: user?.email });
+    console.log("[Paddle] Window.Paddle:", window.Paddle);
+    console.log("[Paddle] Env vars:", {
+      token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
+      starter: import.meta.env.VITE_PADDLE_PRICE_ID_STARTER,
+      team: import.meta.env.VITE_PADDLE_PRICE_ID_TEAM,
+    });
+
+    if (!window.Paddle) {
+      console.error("[Paddle] Paddle script not loaded");
+      alert("Paddle payment system not ready. Please refresh the page.");
+      return;
+    }
+
+    if (!user?.email) {
+      console.error("[Paddle] User email missing", user);
+      alert("Unable to retrieve your email. Please log in again.");
       return;
     }
 
@@ -51,15 +66,29 @@ export function PaddleCheckout({
         ? import.meta.env.VITE_PADDLE_PRICE_ID_STARTER
         : import.meta.env.VITE_PADDLE_PRICE_ID_TEAM;
 
-    window.Paddle.Checkout.open({
-      items: [{ priceId }],
-      customer: {
-        email: user.email,
-      },
-      customData: {
-        userId: user.id,
-      },
-    });
+    if (!priceId) {
+      console.error("[Paddle] Price ID missing for plan:", planName);
+      alert(`Price ID not configured for ${planName} plan`);
+      return;
+    }
+
+    console.log("[Paddle] Opening checkout with:", { priceId, email: user.email, userId: user.id });
+
+    try {
+      window.Paddle.Checkout.open({
+        items: [{ priceId }],
+        customer: {
+          email: user.email,
+        },
+        customData: {
+          userId: user.id,
+        },
+      });
+      console.log("[Paddle] Checkout opened successfully");
+    } catch (err) {
+      console.error("[Paddle] Checkout error:", err);
+      alert("Failed to open checkout. Please try again.");
+    }
   };
 
   const displayText = buttonText || `Upgrade to ${planName.charAt(0).toUpperCase() + planName.slice(1)}`;
