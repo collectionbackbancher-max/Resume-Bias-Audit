@@ -806,6 +806,56 @@ export async function registerRoutes(
     }
   });
 
+  // ── Paddle create checkout session ─────────────────────────────────────────────
+  app.post("/api/paddle/create-checkout", isAuthenticated, async (req: any, res) => {
+    try {
+      const { planName } = req.body;
+      if (!planName || !["starter", "team"].includes(planName)) {
+        return res.status(400).json({ error: "Invalid plan name" });
+      }
+
+      const priceId =
+        planName === "starter"
+          ? process.env.PADDLE_PRICE_ID_STARTER
+          : process.env.PADDLE_PRICE_ID_TEAM;
+
+      if (!priceId) {
+        return res.status(500).json({ error: "Price ID not configured" });
+      }
+
+      const response = await fetch("https://api.paddle.com/transactions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PADDLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [{ price_id: priceId, quantity: 1 }],
+          customer: { email: req.user.email },
+          custom_data: { userId: req.user.id },
+        }),
+      });
+
+      const data = await response.json() as any;
+
+      if (!response.ok) {
+        console.error("[Paddle] Transaction creation failed:", data);
+        return res.status(500).json({ error: data.error?.detail || "Failed to create checkout" });
+      }
+
+      const checkoutUrl = data.data?.checkout?.url;
+      if (!checkoutUrl) {
+        console.error("[Paddle] No checkout URL in response:", data);
+        return res.status(500).json({ error: "No checkout URL returned" });
+      }
+
+      res.json({ url: checkoutUrl });
+    } catch (err) {
+      console.error("[Paddle] Create checkout error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ── Paddle webhook endpoint ─────────────────────────────────────────────────────
   app.post("/api/paddle/webhook", async (req, res) => {
     try {

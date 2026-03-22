@@ -1,12 +1,7 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-
-declare global {
-  interface Window {
-    Paddle?: any;
-  }
-}
+import { Loader2 } from "lucide-react";
 
 interface PaddleCheckoutProps {
   planName: "starter" | "team";
@@ -24,74 +19,33 @@ export function PaddleCheckout({
   className = "",
 }: PaddleCheckoutProps) {
   const { user } = useAuth();
-
-  useEffect(() => {
-    // Load Paddle script if not already loaded
-    if (typeof window !== "undefined" && !window.Paddle) {
-      const script = document.createElement("script");
-      script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
-      script.async = true;
-      script.onload = () => {
-        if (window.Paddle) {
-          console.log("[Paddle] Script loaded, initializing with token");
-          window.Paddle.Setup({ token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN });
-        }
-      };
-      script.onerror = () => {
-        console.error("[Paddle] Failed to load Paddle script");
-      };
-      document.head.appendChild(script);
-    }
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleCheckout = async () => {
-    console.log("[Paddle] Checkout clicked", { planName, userEmail: user?.email });
-    console.log("[Paddle] Window.Paddle:", window.Paddle);
-    console.log("[Paddle] Env vars:", {
-      token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
-      starter: import.meta.env.VITE_PADDLE_PRICE_ID_STARTER,
-      team: import.meta.env.VITE_PADDLE_PRICE_ID_TEAM,
-    });
-
-    if (!window.Paddle) {
-      console.error("[Paddle] Paddle script not loaded");
-      alert("Paddle payment system not ready. Please refresh the page.");
-      return;
-    }
-
-    if (!user?.email) {
-      console.error("[Paddle] User email missing", user);
-      alert("Unable to retrieve your email. Please log in again.");
-      return;
-    }
-
-    const priceId =
-      planName === "starter"
-        ? import.meta.env.VITE_PADDLE_PRICE_ID_STARTER
-        : import.meta.env.VITE_PADDLE_PRICE_ID_TEAM;
-
-    if (!priceId) {
-      console.error("[Paddle] Price ID missing for plan:", planName);
-      alert(`Price ID not configured for ${planName} plan`);
-      return;
-    }
-
-    console.log("[Paddle] Opening checkout with:", { priceId, email: user.email, userId: user.id });
-
+    if (!user) return;
+    setLoading(true);
     try {
-      window.Paddle.Checkout.open({
-        items: [{ priceId }],
-        customer: {
-          email: user.email,
-        },
-        customData: {
-          userId: user.id,
-        },
+      const res = await fetch("/api/paddle/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ planName }),
       });
-      console.log("[Paddle] Checkout opened successfully");
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        console.error("[Paddle] Failed to get checkout URL:", data);
+        alert(data.error || "Failed to open checkout. Please try again.");
+        return;
+      }
+
+      window.open(data.url, "_blank");
     } catch (err) {
       console.error("[Paddle] Checkout error:", err);
       alert("Failed to open checkout. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,10 +56,18 @@ export function PaddleCheckout({
       onClick={handleCheckout}
       variant={variant}
       size={size}
-      className={className}
+      className={`w-full ${className}`}
+      disabled={loading}
       data-testid={`button-paddle-${planName}`}
     >
-      {displayText}
+      {loading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Opening checkout…
+        </>
+      ) : (
+        displayText
+      )}
     </Button>
   );
 }
