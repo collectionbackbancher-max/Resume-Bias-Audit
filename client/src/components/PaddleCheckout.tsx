@@ -20,32 +20,11 @@ export function PaddleCheckout({
 
   const handleCheckout = () => {
     if (!user) return;
-
-    const priceId =
-      planName === "starter"
-        ? import.meta.env.VITE_PADDLE_PRICE_ID_STARTER
-        : import.meta.env.VITE_PADDLE_PRICE_ID_TEAM;
-
-    if (!priceId) {
-      console.error("[Paddle] Price ID not configured for plan:", planName);
-      return;
-    }
-
-    // Build a direct Paddle-hosted checkout URL (no API key needed)
-    const params = new URLSearchParams({
-      "items[0][priceId]": priceId,
-      "items[0][quantity]": "1",
-    });
-
-    if (user.email) {
-      params.set("customer_email", user.email);
-    }
-    if (user.id) {
-      params.set("custom_data[userId]", user.id);
-    }
-
-    const checkoutUrl = `https://buy.paddle.com/checkout?${params.toString()}`;
-    window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+    const params = new URLSearchParams();
+    if (user.email) params.set("email", user.email);
+    if (user.id) params.set("userId", user.id);
+    const url = `/checkout/${planName}?${params.toString()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const displayText =

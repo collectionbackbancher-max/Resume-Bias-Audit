@@ -20,6 +20,7 @@ import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
 import Integrations from "@/pages/Integrations";
+import Checkout from "@/pages/Checkout";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -45,6 +46,7 @@ function Router() {
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/refund" component={RefundPolicy} />
+        <Route path="/checkout/:plan" component={Checkout} />
         <Route component={LandingPage} />
       </Switch>
     );
@@ -63,6 +65,7 @@ function Router() {
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/refund" component={RefundPolicy} />
+        <Route path="/checkout/:plan" component={Checkout} />
         <Route path="/login" component={Dashboard} />
         <Route path="/signup" component={Dashboard} />
         <Route component={NotFound} />
