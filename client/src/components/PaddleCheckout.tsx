@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 interface PaddleCheckoutProps {
   planName: "starter" | "team";
@@ -17,14 +18,14 @@ export function PaddleCheckout({
   className = "",
 }: PaddleCheckoutProps) {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
 
   const handleCheckout = () => {
     if (!user) return;
     const params = new URLSearchParams();
     if (user.email) params.set("email", user.email);
     if (user.id) params.set("userId", user.id);
-    const url = `/checkout/${planName}?${params.toString()}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    navigate(`/checkout/${planName}?${params.toString()}`);
   };
 
   const displayText =

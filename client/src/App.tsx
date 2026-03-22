@@ -53,24 +53,28 @@ function Router() {
   }
 
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/upload" component={Upload} />
-        <Route path="/report/:id" component={Report} />
-        <Route path="/integrations" component={Integrations} />
-        <Route path="/pricing" component={Pricing} />
-        <Route path="/blog" component={Blog} />
-        <Route path="/blog/:slug" component={BlogPost} />
-        <Route path="/terms" component={TermsOfService} />
-        <Route path="/privacy" component={PrivacyPolicy} />
-        <Route path="/refund" component={RefundPolicy} />
-        <Route path="/checkout/:plan" component={Checkout} />
-        <Route path="/login" component={Dashboard} />
-        <Route path="/signup" component={Dashboard} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      <Route path="/checkout/:plan" component={Checkout} />
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/upload" component={Upload} />
+            <Route path="/report/:id" component={Report} />
+            <Route path="/integrations" component={Integrations} />
+            <Route path="/pricing" component={Pricing} />
+            <Route path="/blog" component={Blog} />
+            <Route path="/blog/:slug" component={BlogPost} />
+            <Route path="/terms" component={TermsOfService} />
+            <Route path="/privacy" component={PrivacyPolicy} />
+            <Route path="/refund" component={RefundPolicy} />
+            <Route path="/login" component={Dashboard} />
+            <Route path="/signup" component={Dashboard} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 
