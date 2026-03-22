@@ -48,8 +48,19 @@ export default function Checkout() {
         window.Paddle.Setup({
           token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
           eventCallback: (event: any) => {
+            console.log("[Paddle] event:", event.name, event);
             if (event.name === "checkout.completed") {
               navigate("/");
+            }
+            if (
+              event.name === "checkout.error" ||
+              event.name === "checkout.warning"
+            ) {
+              console.error("[Paddle] checkout error event:", event);
+              setStatus("error");
+              setErrorMsg(
+                "Payment checkout is temporarily unavailable. Please contact support or try again later."
+              );
             }
           },
         });
@@ -64,6 +75,7 @@ export default function Checkout() {
             frameInitialHeight: 450,
             frameStyle:
               "width: 100%; min-width: 312px; background-color: transparent; border: none;",
+            successUrl: `${window.location.origin}/`,
           },
         };
 
