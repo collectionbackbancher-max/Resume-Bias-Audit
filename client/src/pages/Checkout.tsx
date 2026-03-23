@@ -9,16 +9,10 @@ declare global {
   }
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  starter: "Starter — $9/month",
-  team: "Team — $29/month",
-};
-
 export default function Checkout() {
   const params = useParams<{ plan: string }>();
   const plan = params.plan as "starter" | "team";
   const [, navigate] = useLocation();
-  const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -30,6 +24,7 @@ export default function Checkout() {
 
     const search = new URLSearchParams(window.location.search);
     const email = search.get("email") || "";
+    const userId = search.get("userId") || "";
 
     if (!priceId) {
       setStatus("error");
@@ -45,26 +40,27 @@ export default function Checkout() {
       }
 
       try {
-        window.Paddle.Setup({
+        // Paddle Billing v2 uses Initialize (not Setup)
+        window.Paddle.Initialize({
           token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
+          pwCustomer: email ? { email } : {},
           eventCallback: (event: any) => {
-            console.log("[Paddle] event:", event.name, event);
-            if (event.name === "checkout.completed") {
+            console.log("[Paddle] event:", event?.name, event);
+            if (event?.name === "checkout.completed") {
               navigate("/");
             }
-            if (
-              event.name === "checkout.error" ||
-              event.name === "checkout.warning"
-            ) {
-              console.error("[Paddle] checkout error event:", event);
+            if (event?.name === "checkout.error") {
+              console.error("[Paddle] checkout error:", event);
               setStatus("error");
               setErrorMsg(
-                "Payment checkout is temporarily unavailable. Please contact support or try again later."
+                event?.detail ||
+                "Payment checkout is currently unavailable. Please try again later or contact support."
               );
             }
           },
         });
 
+        // Open inline checkout embedded in our page
         const opts: any = {
           items: [{ priceId, quantity: 1 }],
           settings: {
@@ -79,9 +75,8 @@ export default function Checkout() {
           },
         };
 
-        if (email) {
-          opts.customer = { email };
-        }
+        if (email) opts.customer = { email };
+        if (userId) opts.customData = { userId };
 
         setStatus("ready");
         window.Paddle.Checkout.open(opts);
@@ -101,7 +96,7 @@ export default function Checkout() {
       script.onload = initPaddle;
       script.onerror = () => {
         setStatus("error");
-        setErrorMsg("Failed to load payment system. Check your connection.");
+        setErrorMsg("Failed to load payment system. Please check your connection.");
       };
       document.head.appendChild(script);
     }
@@ -138,14 +133,18 @@ export default function Checkout() {
         )}
 
         {status === "error" && (
-          <div className="flex flex-col items-center gap-4 py-20">
+          <div className="flex flex-col items-center gap-6 py-20 max-w-md text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+              <span className="text-red-400 text-2xl">!</span>
+            </div>
             <p className="text-red-400 text-base">{errorMsg}</p>
             <Button
               variant="outline"
               onClick={() => navigate("/pricing")}
-              className="border-cyan-500/30 text-cyan-400"
+              className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
             >
-              ← Back to Pricing
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Pricing
             </Button>
           </div>
         )}
@@ -153,8 +152,7 @@ export default function Checkout() {
         {/* Paddle renders its inline iframe into this div */}
         <div
           className="paddle-checkout-container w-full max-w-xl"
-          style={{ minHeight: 450 }}
-          ref={containerRef}
+          style={{ minHeight: status === "ready" ? 450 : 0 }}
         />
       </div>
     </div>

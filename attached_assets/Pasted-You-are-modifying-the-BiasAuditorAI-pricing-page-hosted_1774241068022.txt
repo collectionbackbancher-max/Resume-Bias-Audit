@@ -1,0 +1,86 @@
+You are modifying the BiasAuditorAI pricing page hosted at https://biasauditorai.com/pricing so that every “Buy Now” / “Get Started” button opens a Paddle.js checkout (popup modal), not an external link.
+Step 1 – Install Paddle.js
+
+
+In the <head> of pricing.html, add:
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+
+
+
+Directly below it, add an inline <script> that initializes Paddle.js with the client‑side token for BiasAuditorAI (you will replace the example token):
+Paddle.Initialize({
+  token: 'live_5a4f91931241409a67545c46958'
+  pwCustomer: {} 
+
+
+
+Step 2 – Map buttons to Paddle price IDs
+
+
+Identify each pricing‑tier button on the page, for example:
+
+
+#starter-buy
+
+
+#team-buy
+
+
+
+
+For each button, attach a click listener that calls Paddle.Checkout.open() with the correct price ID:
+document.getElementById('starter-buy').addEventListener('click', () => {
+  Paddle.Checkout.open({
+    priceId: 'pro_01km9syzkwn5s6er9va1gpvf3b', 
+    customData: {
+      plan: 'starter'
+    }
+  });
+});
+
+document.getElementById('team-buy').addEventListener('click', () => {
+  Paddle.Checkout.open({
+    priceId: 'pro_01km9szq4mr4439bch40e5ssjm', 
+    customData: {
+      plan: 'team'
+    }
+  });
+});
+
+
+
+
+Step 3 – Optimize for logged‑in users (optional)
+
+
+If your pricing page can be accessed by logged‑in users from your app, replace the dummy pwCustomer: {} 
+
+
+Step 4 – Replit / deployment notes
+
+
+Run and test this inside Replit’s live preview URL (or your real domain), not localhost, because Paddle.js verifies the origin.
+
+
+If you want to show localized prices on the pricing page, additionally call Paddle.PricePreview() for each plan and inject the price HTML into the relevant DOM element (refer to the Paddle “Build a pricing page” docs).
+
+
+Expected behavior
+
+
+Clicking any “Buy Now” / “Get Started” button opens the Paddle checkout modal for that plan.
+
+
+After successful payment, Paddle will redirect or call your configured success URL / webhook (you can add a successUrl or webhookId inside the Paddle.Checkout.open() options later).
+
+
+Do not
+
+
+Put Paddle API keys in the frontend; keep them on the backend.
+
+
+Load Paddle.js from anywhere except https://cdn.paddle.com/paddle/v2/paddle.js.
+
+
+Finally, write clean, commented JavaScript and ensure IDs on the buttons in your real HTML match the ones used in the listeners.
