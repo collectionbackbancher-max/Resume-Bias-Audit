@@ -1,9 +1,9 @@
 import { defineConfig } from "drizzle-kit";
 
-const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+const dbUrl = process.env.SUPABASE_DATABASE_URL;
 
 if (!dbUrl) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+  throw new Error("SUPABASE_DATABASE_URL must be set. Please configure your Supabase database connection.");
 }
 
 export default defineConfig({
@@ -12,6 +12,6 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: dbUrl,
-    ssl: process.env.SUPABASE_DATABASE_URL ? "require" : undefined,
+    ssl: "require",
   },
 });
