@@ -61,3 +61,7 @@ PADDLE_PRICE_ID_TEAM = "pri_01km9t33f2hxhj7qeczgkpzxvp"
 PADDLE_WEBHOOK_SECRET = "pdl_ntfset_01km9v2jvv3wadsswyjvq2ey99_yDy/XG0rw4//sUtt/sPtMgXbnO4mLyHS"
 VITE_PADDLE_PRICE_ID_STARTER = "pri_01km9t4xk7m26kpcxgk4nqff0v"
 VITE_PADDLE_PRICE_ID_TEAM = "pri_01km9t33f2hxhj7qeczgkpzxvp"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
