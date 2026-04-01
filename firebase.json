@@ -9,17 +9,11 @@
     "rewrites": [
       {
         "source": "/api/**",
-        "run": {
-          "serviceId": "biasauditor-api",
-          "region": "us-central1"
-        }
+        "destination": "CLOUD_RUN_URL"
       },
       {
         "source": "/health",
-        "run": {
-          "serviceId": "biasauditor-api",
-          "region": "us-central1"
-        }
+        "destination": "CLOUD_RUN_URL"
       },
       {
         "source": "**",
