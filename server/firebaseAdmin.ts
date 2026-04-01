@@ -8,11 +8,14 @@ export function getFirebaseAdmin(): admin.app.App {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   // Normalize the private key — handles literal \n sequences, double-escaped \\n,
-  // and surrounding quotes that can be added by some secret managers
+  // surrounding quotes, and trailing JSON punctuation (e.g. value copied from JSON file)
   let privateKey = process.env.FIREBASE_PRIVATE_KEY ?? "";
-  privateKey = privateKey.replace(/^["']|["']$/g, ""); // strip surrounding quotes
-  privateKey = privateKey.replace(/\\\\n/g, "\n");     // double-escaped: \\n → newline
-  privateKey = privateKey.replace(/\\n/g, "\n");        // single-escaped: \n → newline
+  privateKey = privateKey.trim();                          // strip leading/trailing whitespace
+  privateKey = privateKey.replace(/,?\s*$/, "");           // strip trailing comma or whitespace
+  privateKey = privateKey.replace(/^["']|["']$/g, "");     // strip surrounding double/single quotes
+  privateKey = privateKey.trim();                          // trim again after quote removal
+  privateKey = privateKey.replace(/\\\\n/g, "\n");         // double-escaped: \\n → newline
+  privateKey = privateKey.replace(/\\n/g, "\n");           // single-escaped: \n → newline
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error(
