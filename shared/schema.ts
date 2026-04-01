@@ -1,59 +1,62 @@
-import { pgTable, text, serial, integer, timestamp, varchar, json } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Re-export auth models to ensure they are created
-export * from "./models/auth";
-import { users as authUsers } from "./models/auth";
+export interface Scan {
+  id: string;
+  userId: string;
+  batchId?: string | null;
+  filename: string;
+  resumeText: string;
+  cleanText?: string | null;
+  sections?: any;
+  biasScore?: number | null;
+  riskLevel?: string | null;
+  flags?: any;
+  createdAt: string;
+}
 
-export const usersMetadata = pgTable("users_metadata", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => authUsers.id),
-  email: text("email").notNull(),
-  subscriptionPlan: text("subscription_plan").default("free").notNull(),
-  scansUsed: integer("scans_used").default(0).notNull(),
-  lastScanReset: timestamp("last_scan_reset").defaultNow().notNull(),
-  subscriptionId: varchar("subscription_id"),
-  customerId: varchar("customer_id"),
-  paddleStatus: text("paddle_status").default("active"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+export interface UserMetadata {
+  id: string;
+  userId: string;
+  email: string;
+  subscriptionPlan: string;
+  scansUsed: number;
+  lastScanReset: string;
+  subscriptionId?: string | null;
+  customerId?: string | null;
+  paddleStatus?: string | null;
+  createdAt: string;
+}
+
+export interface AtsConnection {
+  id: string;
+  userId: string;
+  provider: string;
+  apiKey: string;
+  createdAt: string;
+}
+
+export const insertScanSchema = z.object({
+  userId: z.string(),
+  batchId: z.string().optional(),
+  filename: z.string().default("resume"),
+  resumeText: z.string(),
+  cleanText: z.string().optional(),
+  sections: z.any().optional(),
+  biasScore: z.number().optional(),
+  riskLevel: z.string().optional(),
+  flags: z.any().optional(),
 });
 
-export const scans = pgTable("scans", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => authUsers.id),
-  batchId: varchar("batch_id"), // Groups multiple uploads together
-  filename: text("filename").default("resume").notNull(),
-  resumeText: text("resume_text").notNull(),
-  cleanText: text("clean_text"),
-  sections: json("sections").$type<any>(),
-  biasScore: integer("bias_score"),
-  riskLevel: text("risk_level"),
-  flags: json("flags").$type<any>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+export const insertAtsConnectionSchema = z.object({
+  userId: z.string(),
+  provider: z.string().default("greenhouse"),
+  apiKey: z.string(),
 });
 
-export const atsConnections = pgTable("ats_connections", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => authUsers.id),
-  provider: text("provider").notNull().default("greenhouse"),
-  apiKey: text("api_key").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertUserMetadataSchema = createInsertSchema(usersMetadata).omit({ id: true, createdAt: true });
-export const insertScanSchema = createInsertSchema(scans).omit({ id: true, createdAt: true });
-export const insertAtsConnectionSchema = createInsertSchema(atsConnections).omit({ id: true, createdAt: true });
-
-export type UserMetadata = typeof usersMetadata.$inferSelect;
-export type Scan = typeof scans.$inferSelect;
 export type InsertScan = z.infer<typeof insertScanSchema>;
-
-export type AtsConnection = typeof atsConnections.$inferSelect;
 export type InsertAtsConnection = z.infer<typeof insertAtsConnectionSchema>;
 
-// Alias for existing code compatibility
-export const resumes = scans;
+export const resumes = {} as any;
 export const insertResumeSchema = insertScanSchema;
 export type Resume = Scan;
 export type InsertResume = InsertScan;

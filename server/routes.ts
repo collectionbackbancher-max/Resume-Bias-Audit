@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { isAuthenticated } from "./supabaseAuth";
+import { isAuthenticated } from "./firebaseAuth";
 import OpenAI from "openai";
 import multer from "multer";
 import { analyzeBias, generateRewriteSuggestions } from "./bias_engine";
@@ -98,14 +98,13 @@ export async function registerRoutes(
         });
       }
 
-      // Update plan in database (MVP approach - no payment processing)
-      const { db } = await import("./db");
-      const { usersMetadata } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-      
-      await db.update(usersMetadata)
-        .set({ subscriptionPlan: plan.toLowerCase() })
-        .where(eq(usersMetadata.userId, req.user.id));
+      // Update plan in Firestore
+      const { getFirestore } = await import("./firebaseAdmin");
+      const fsDb = getFirestore();
+      await fsDb.collection("users").doc(req.user.id).set(
+        { subscriptionPlan: plan.toLowerCase() },
+        { merge: true }
+      );
 
       res.json({
         message: `Successfully upgraded to ${plan} plan`,
@@ -190,7 +189,7 @@ export async function registerRoutes(
 
   app.get("/api/generate-report/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const scanId = Number(req.params.id);
+      const scanId = req.params.id;
       const scan = await storage.getScan(scanId);
       
       if (!scan) {
@@ -422,7 +421,7 @@ export async function registerRoutes(
 
   app.get(api.resumes.get.path, isAuthenticated, async (req: any, res) => {
     try {
-      const scan = await storage.getScan(Number(req.params.id));
+      const scan = await storage.getScan(req.params.id);
       if (!scan) {
         return res.status(404).json({ message: "Not found" });
       }
@@ -457,7 +456,7 @@ export async function registerRoutes(
 
   app.post(api.resumes.analyze.path, isAuthenticated, async (req: any, res) => {
     try {
-      const scan = await storage.getScan(Number(req.params.id));
+      const scan = await storage.getScan(req.params.id);
       if (!scan) return res.status(404).json({ message: "Not found" });
       if (scan.userId !== req.user.id) return res.status(401).json({ message: "Unauthorized" });
       if (scan.biasScore !== null) return res.json(scan); // already analyzed

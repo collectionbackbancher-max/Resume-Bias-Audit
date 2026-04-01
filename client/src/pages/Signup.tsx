@@ -1,19 +1,34 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ShieldCheck, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+
+function mapFirebaseError(code: string): string {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try signing in instead.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    case "auth/weak-password":
+      return "Password must be at least 6 characters.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please try again later.";
+    default:
+      return "Could not create account. Please try again.";
+  }
+}
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -22,55 +37,17 @@ export default function Signup() {
     setError(null);
     setIsPending(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name },
-        },
-      });
-      if (error) {
-        setError(error.message);
-      } else if (data.session) {
-        // Auto-confirmed (email confirmation disabled)
-        setLocation("/");
-      } else {
-        // Email confirmation required
-        setSuccess(true);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      if (name.trim()) {
+        await updateProfile(credential.user, { displayName: name.trim() });
       }
+      setLocation("/");
+    } catch (err: any) {
+      setError(mapFirebaseError(err.code || ""));
     } finally {
       setIsPending(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4">
-        {/* Background gradient orbs */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl mix-blend-multiply filter" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md relative z-10"
-        >
-          <Card className="shadow-lg border-cyan-500/20 bg-gradient-to-br from-slate-900/50 to-black text-center p-8">
-            <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-            </div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">Check your email</h2>
-            <p className="text-gray-400 mb-6">
-              We sent a confirmation link to <strong className="text-cyan-400">{email}</strong>. Click it to activate your account.
-            </p>
-            <Link href="/login">
-              <Button className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-semibold rounded-lg">Back to Login</Button>
-            </Link>
-          </Card>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4 overflow-hidden relative">

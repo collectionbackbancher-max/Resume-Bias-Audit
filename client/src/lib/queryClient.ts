@@ -1,10 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { supabase } from "./supabase";
+import { auth } from "./firebase";
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    return { Authorization: `Bearer ${session.access_token}` };
+  const user = auth.currentUser;
+  if (user) {
+    const token = await user.getIdToken();
+    return { Authorization: `Bearer ${token}` };
   }
   return {};
 }

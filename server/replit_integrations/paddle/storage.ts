@@ -1,6 +1,4 @@
-import { usersMetadata } from "@shared/schema";
-import { db } from "../../db";
-import { eq } from "drizzle-orm";
+import { getFirestore } from "../../firebaseAdmin";
 
 export interface IPaddleStorage {
   updateUserPlan(
@@ -17,44 +15,56 @@ export interface IPaddleStorage {
 }
 
 class PaddleStorage implements IPaddleStorage {
+  private get db() {
+    return getFirestore();
+  }
+
   async updateUserPlan(
     userId: string,
     plan: "free" | "starter" | "team",
     subscriptionId: string,
     customerId: string
   ): Promise<void> {
-    await db
-      .update(usersMetadata)
-      .set({
+    await this.db.collection("users").doc(userId).set(
+      {
         subscriptionPlan: plan,
         subscriptionId,
         customerId,
         paddleStatus: "active",
-        scansUsed: 0, // Reset scan count on new subscription
-        lastScanReset: new Date(),
-      })
-      .where(eq(usersMetadata.userId, userId));
+        scansUsed: 0,
+        lastScanReset: new Date().toISOString(),
+      },
+      { merge: true }
+    );
   }
 
   async updateSubscriptionStatus(
     subscriptionId: string,
     status: "active" | "canceled" | "paused"
   ): Promise<void> {
-    await db
-      .update(usersMetadata)
-      .set({
-        paddleStatus: status,
-        subscriptionPlan: status === "canceled" ? "free" : undefined,
-      })
-      .where(eq(usersMetadata.subscriptionId, subscriptionId));
+    const snap = await this.db
+      .collection("users")
+      .where("subscriptionId", "==", subscriptionId)
+      .limit(1)
+      .get();
+
+    if (snap.empty) return;
+
+    const update: Record<string, any> = { paddleStatus: status };
+    if (status === "canceled") update.subscriptionPlan = "free";
+
+    await snap.docs[0].ref.update(update);
   }
 
   async getUserBySubscriptionId(subscriptionId: string): Promise<any> {
-    const [user] = await db
-      .select()
-      .from(usersMetadata)
-      .where(eq(usersMetadata.subscriptionId, subscriptionId));
-    return user;
+    const snap = await this.db
+      .collection("users")
+      .where("subscriptionId", "==", subscriptionId)
+      .limit(1)
+      .get();
+
+    if (snap.empty) return undefined;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() };
   }
 }
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { resumes } from './schema';
+import type { Scan } from './schema';
 
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
@@ -13,7 +13,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/resumes' as const,
       responses: {
-        200: z.array(z.custom<typeof resumes.$inferSelect>()),
+        200: z.array(z.custom<Scan>()),
         401: errorSchemas.unauthorized,
       },
     },
@@ -21,7 +21,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/resumes/:id' as const,
       responses: {
-        200: z.custom<typeof resumes.$inferSelect>(),
+        200: z.custom<Scan>(),
         404: errorSchemas.notFound,
         401: errorSchemas.unauthorized,
       },
@@ -31,7 +31,7 @@ export const api = {
       path: '/api/resumes' as const,
       input: z.object({ filename: z.string(), text: z.string() }),
       responses: {
-        201: z.custom<typeof resumes.$inferSelect>(),
+        201: z.custom<Scan>(),
         400: errorSchemas.validation,
         401: errorSchemas.unauthorized,
       },
@@ -40,7 +40,7 @@ export const api = {
       method: 'POST' as const,
       path: '/api/resumes/:id/analyze' as const,
       responses: {
-        200: z.custom<typeof resumes.$inferSelect>(),
+        200: z.custom<Scan>(),
         404: errorSchemas.notFound,
         401: errorSchemas.unauthorized,
       },

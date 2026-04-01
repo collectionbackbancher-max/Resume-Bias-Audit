@@ -1,12 +1,29 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+
+function mapFirebaseError(code: string): string {
+  switch (code) {
+    case "auth/user-not-found":
+    case "auth/invalid-credential":
+      return "No account found with this email or the password is incorrect.";
+    case "auth/wrong-password":
+      return "Incorrect password.";
+    case "auth/too-many-requests":
+      return "Too many failed attempts. Please try again later.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    default:
+      return "Sign-in failed. Please check your credentials and try again.";
+  }
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,12 +37,10 @@ export default function Login() {
     setError(null);
     setIsPending(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setError(error.message);
-      } else {
-        setLocation("/");
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      setLocation("/");
+    } catch (err: any) {
+      setError(mapFirebaseError(err.code || ""));
     } finally {
       setIsPending(false);
     }
