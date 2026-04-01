@@ -33,18 +33,28 @@ export const isAuthenticated: RequestHandler = async (req: any, res, next) => {
       decoded.display_name ||
       email.split("@")[0];
 
-    // Ensure the user document exists in Firestore (upsert on first login)
+    // Ensure the user document exists in Firestore with all required fields
     try {
       const db = getFirestore();
       const userRef = db.collection("users").doc(uid);
-      await userRef.set(
-        {
+      const snap = await userRef.get();
+      const now = new Date().toISOString();
+      if (!snap.exists) {
+        await userRef.set({
+          userId: uid,
           email,
           name,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+          subscriptionPlan: "free",
+          scansUsed: 0,
+          lastScanReset: now,
+          subscriptionId: null,
+          customerId: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await userRef.set({ email, name, updatedAt: now }, { merge: true });
+      }
     } catch (err) {
       console.warn("[firebaseAuth] upsert user failed:", err);
     }
