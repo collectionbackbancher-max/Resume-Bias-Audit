@@ -4,10 +4,10 @@ import { useToast } from "@/hooks/use-toast";
 import { getAuthHeaders } from "@/lib/queryClient";
 
 export interface Resume {
-  id: number;
+  id: string;
   userId: string;
   filename: string;
-  rawText: string;
+  resumeText: string;
   score: number | null;
   riskLevel: "Low" | "Moderate" | "High" | null;
   analysis: {
@@ -16,7 +16,7 @@ export interface Resume {
       category: string;
       description: string;
       severity: "Low" | "Moderate" | "High";
-      suggestion: string
+      suggestion: string;
     }[];
   } | null;
   createdAt: string;
@@ -35,7 +35,7 @@ export function useResumes() {
   });
 }
 
-export function useResume(id: number) {
+export function useResume(id: string) {
   return useQuery({
     queryKey: [api.resumes.get.path, id],
     queryFn: async () => {
@@ -47,7 +47,7 @@ export function useResume(id: number) {
       if (!res.ok) throw new Error("Failed to fetch resume");
       return await res.json() as Resume;
     },
-    enabled: !isNaN(id),
+    enabled: !!id,
   });
 }
 
@@ -110,7 +110,7 @@ export function useScanResume() {
         const error = await res.json();
         throw new Error(error.message || "Failed to scan resume");
       }
-      return await res.json() as { score: number; riskLevel: string; flags: string[]; resumeId: number };
+      return await res.json() as { score: number; riskLevel: string; flags: string[]; resumeId: string };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [api.resumes.list.path] });

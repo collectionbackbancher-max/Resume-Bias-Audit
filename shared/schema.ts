@@ -56,7 +56,6 @@ export const insertAtsConnectionSchema = z.object({
 export type InsertScan = z.infer<typeof insertScanSchema>;
 export type InsertAtsConnection = z.infer<typeof insertAtsConnectionSchema>;
 
-export const resumes = {} as any;
 export const insertResumeSchema = insertScanSchema;
 export type Resume = Scan;
 export type InsertResume = InsertScan;

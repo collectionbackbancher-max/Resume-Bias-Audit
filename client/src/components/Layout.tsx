@@ -24,8 +24,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
-  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
+  const avatarUrl = user?.photoURL || undefined;
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },

@@ -24,7 +24,7 @@ export function PaddleCheckout({
     if (!user) return;
     const params = new URLSearchParams();
     if (user.email) params.set("email", user.email);
-    if (user.id) params.set("userId", user.id);
+    if (user.uid) params.set("userId", user.uid);
     navigate(`/checkout/${planName}?${params.toString()}`);
   };
 

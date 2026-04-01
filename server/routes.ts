@@ -475,7 +475,7 @@ export async function registerRoutes(
             category: "General",
             description: f,
             severity: "Moderate",
-            suggestion: suggestions.find(s => f.includes(s.original))?.suggestion || "Consider more inclusive language"
+            suggestion: suggestions.find(s => f.phrase?.includes(s.original))?.suggestion || "Consider more inclusive language"
           })),
           suggestions,
           scores: { language: biasResult.score, age: biasResult.score, name: 100 }

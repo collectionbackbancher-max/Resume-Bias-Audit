@@ -41,7 +41,7 @@ function categoryBadge(cat: string) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Report() {
   const { id } = useParams();
-  const resumeId = parseInt(id || "0");
+  const resumeId = id || "";
   const { data: resume, isLoading, error } = useResume(resumeId);
   const [showClean, setShowClean] = useState(false);
 

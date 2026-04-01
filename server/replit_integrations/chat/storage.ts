@@ -1,10 +1,10 @@
 export interface IChatStorage {
-  getConversation(id: string): Promise<any | undefined>;
+  getConversation(id: number | string): Promise<any | undefined>;
   getAllConversations(): Promise<any[]>;
   createConversation(title: string): Promise<any>;
-  deleteConversation(id: string): Promise<void>;
-  getMessagesByConversation(conversationId: string): Promise<any[]>;
-  createMessage(conversationId: string, role: string, content: string): Promise<any>;
+  deleteConversation(id: number | string): Promise<void>;
+  getMessagesByConversation(conversationId: number | string): Promise<any[]>;
+  createMessage(conversationId: number | string, role: string, content: string): Promise<any>;
 }
 
 export const chatStorage: IChatStorage = {

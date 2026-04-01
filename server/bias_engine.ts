@@ -291,9 +291,9 @@ export function analyzeBias(
   if (gradYears.length > 0) {
     ageRiskSum += Math.min(gradYears.length * 10, 30);
     allFlags.push({
-      phrase: gradYears[0],
+      phrase: gradYears[0] ?? "",
       category: "age",
-      context: `Graduation year(s) detected: ${[...new Set(gradYears)].join(", ")}`,
+      context: `Graduation year(s) detected: ${Array.from(new Set(gradYears)).join(", ")}`,
       severity: "Low",
       description:
         "Specific years (graduation, employment start) allow readers to infer a candidate's approximate age, which can introduce unconscious bias.",
