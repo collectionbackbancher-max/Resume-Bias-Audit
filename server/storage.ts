@@ -71,9 +71,9 @@ export class FirestoreStorage implements IStorage {
     const snap = await this.db
       .collection("scans")
       .where("userId", "==", userId)
-      .orderBy("createdAt", "desc")
       .get();
-    return snap.docs.map((d) => docToScan(d.id, d.data()));
+    const docs = snap.docs.map((d) => docToScan(d.id, d.data()));
+    return docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   async getScan(id: string): Promise<Scan | undefined> {

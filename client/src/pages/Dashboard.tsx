@@ -25,6 +25,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -392,27 +393,59 @@ export default function Dashboard() {
                   <span className="text-sm font-semibold text-white">Risk Distribution</span>
                 </div>
 
-                <div className="space-y-3">
-                  {[
-                    { label: "Low", count: riskCounts.Low, bar: "bg-emerald-400", text: "text-emerald-400" },
-                    { label: "Moderate", count: riskCounts.Moderate, bar: "bg-yellow-400", text: "text-yellow-400" },
-                    { label: "High", count: riskCounts.High, bar: "bg-red-400", text: "text-red-400" },
-                  ].map((item) => (
-                    <div key={item.label} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">{item.label} Risk</span>
-                        <span className={`font-semibold ${item.text}`}>{item.count}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                        <motion.div
-                          className={`h-full rounded-full ${item.bar}`}
-                          initial={{ width: 0 }}
-                          animate={{ width: total > 0 ? `${(item.count / total) * 100}%` : "0%" }}
-                          transition={{ duration: 0.7, delay: 0.5, ease: "easeOut" }}
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-24 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Low", value: riskCounts.Low || 0.001 },
+                            { name: "Moderate", value: riskCounts.Moderate || 0.001 },
+                            { name: "High", value: riskCounts.High || 0.001 },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={28}
+                          outerRadius={42}
+                          paddingAngle={riskCounts.Low + riskCounts.Moderate + riskCounts.High > 1 ? 3 : 0}
+                          dataKey="value"
+                          stroke="none"
+                          startAngle={90}
+                          endAngle={-270}
+                        >
+                          <Cell fill="#34d399" />
+                          <Cell fill="#facc15" />
+                          <Cell fill="#f87171" />
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: "#0f172a", border: "1px solid rgba(6,182,212,0.2)", borderRadius: 8, fontSize: 11 }}
+                          itemStyle={{ color: "#e2e8f0" }}
+                          formatter={(v: number, name: string) => [Math.round(v), `${name} Risk`]}
                         />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="flex-1 space-y-2.5">
+                    {[
+                      { label: "Low", count: riskCounts.Low, color: "#34d399", text: "text-emerald-400" },
+                      { label: "Moderate", count: riskCounts.Moderate, color: "#facc15", text: "text-yellow-400" },
+                      { label: "High", count: riskCounts.High, color: "#f87171", text: "text-red-400" },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: item.color }} />
+                          <span className="text-gray-400">{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${item.text}`}>{item.count}</span>
+                          <span className="text-gray-600 text-[10px]">
+                            {total > 0 ? `${Math.round((item.count / total) * 100)}%` : "—"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 {avgScore !== null && (
