@@ -5,17 +5,19 @@ let app: admin.app.App | undefined;
 export function getFirebaseAdmin(): admin.app.App {
   if (app) return app;
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  // Normalize the private key — handles literal \n sequences, double-escaped \\n,
-  // surrounding quotes, and trailing JSON punctuation (e.g. value copied from JSON file)
+  const projectId = (process.env.FIREBASE_PROJECT_ID ?? "").trim().replace(/^["']|["']$/g, "").trim();
+
+  // Strip surrounding quotes and whitespace from client email
+  const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL ?? "").trim().replace(/^["']|["']$/g, "").trim();
+
+  // Normalize the private key: strip JSON punctuation, quotes, then convert escaped newlines
   let privateKey = process.env.FIREBASE_PRIVATE_KEY ?? "";
-  privateKey = privateKey.trim();                          // strip leading/trailing whitespace
-  privateKey = privateKey.replace(/,?\s*$/, "");           // strip trailing comma or whitespace
-  privateKey = privateKey.replace(/^["']|["']$/g, "");     // strip surrounding double/single quotes
-  privateKey = privateKey.trim();                          // trim again after quote removal
-  privateKey = privateKey.replace(/\\\\n/g, "\n");         // double-escaped: \\n → newline
-  privateKey = privateKey.replace(/\\n/g, "\n");           // single-escaped: \n → newline
+  privateKey = privateKey.trim();
+  privateKey = privateKey.replace(/,\s*$/, "");            // strip trailing comma
+  privateKey = privateKey.replace(/^["']|["']$/g, "");     // strip surrounding quotes
+  privateKey = privateKey.trim();
+  privateKey = privateKey.replace(/\\\\n/g, "\n");         // double-escaped \\n → newline
+  privateKey = privateKey.replace(/\\n/g, "\n");           // single-escaped \n → newline
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error(
