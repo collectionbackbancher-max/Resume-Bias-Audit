@@ -61,6 +61,11 @@ PADDLE_PRICE_ID_TEAM = "pri_01km9t33f2hxhj7qeczgkpzxvp"
 PADDLE_WEBHOOK_SECRET = "pdl_ntfset_01km9v2jvv3wadsswyjvq2ey99_yDy/XG0rw4//sUtt/sPtMgXbnO4mLyHS"
 VITE_PADDLE_PRICE_ID_STARTER = "pri_01km9t4xk7m26kpcxgk4nqff0v"
 VITE_PADDLE_PRICE_ID_TEAM = "pri_01km9t33f2hxhj7qeczgkpzxvp"
+VITE_FIREBASE_API_KEY = "AIzaSyBif0J4gFuzm3bszQzXHJTCfxMjB7qM34c"
+VITE_FIREBASE_AUTH_DOMAIN = "biasauditorai.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID = "biasauditorai"
+VITE_FIREBASE_STORAGE_BUCKET = "biasauditorai.firebasestorage.app"
+VITE_FIREBASE_APP_ID = "1:238621159141:web:d9956d3243652cae5eee0c"
 
 [postMerge]
 path = "scripts/post-merge.sh"
