@@ -131,7 +131,8 @@ firebase deploy --only hosting
 
 Firebase Hosting automatically routes `/api/**` requests to your Cloud Run service
 using the `serviceId` and `region` configured in `firebase.json` — no manual URL
-copy needed.
+copy needed. Note: for this rewrite method to work, your Cloud Run service and your
+Firebase project must be in the **same Google Cloud project**.
 
 Firebase prints your live Hosting URL:
 
