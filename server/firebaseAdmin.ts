@@ -7,7 +7,12 @@ export function getFirebaseAdmin(): admin.app.App {
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  // Normalize the private key — handles literal \n sequences, double-escaped \\n,
+  // and surrounding quotes that can be added by some secret managers
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY ?? "";
+  privateKey = privateKey.replace(/^["']|["']$/g, ""); // strip surrounding quotes
+  privateKey = privateKey.replace(/\\\\n/g, "\n");     // double-escaped: \\n → newline
+  privateKey = privateKey.replace(/\\n/g, "\n");        // single-escaped: \n → newline
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error(
