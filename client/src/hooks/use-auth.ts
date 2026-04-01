@@ -8,6 +8,10 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setIsLoading(false);
@@ -17,6 +21,7 @@ export function useAuth() {
   }, []);
 
   const logout = async () => {
+    if (!auth) return;
     await signOut(auth);
     queryClient.clear();
   };
