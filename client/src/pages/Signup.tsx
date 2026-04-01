@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
-function mapFirebaseError(code: string): string {
+function mapFirebaseError(code: string, message?: string): string {
   switch (code) {
     case "auth/email-already-in-use":
       return "An account with this email already exists. Try signing in instead.";
@@ -19,8 +19,16 @@ function mapFirebaseError(code: string): string {
       return "Password must be at least 6 characters.";
     case "auth/too-many-requests":
       return "Too many attempts. Please try again later.";
+    case "auth/operation-not-allowed":
+      return "Email/password sign-up is not enabled. Please enable it in the Firebase console under Authentication → Sign-in methods.";
+    case "auth/unauthorized-domain":
+      return "This domain is not authorized for Firebase Authentication. Add it in the Firebase console under Authentication → Settings → Authorized domains.";
+    case "auth/network-request-failed":
+      return "Network error. Please check your connection and try again.";
     default:
-      return "Could not create account. Please try again.";
+      return message
+        ? `Sign-up failed: ${message}`
+        : "Could not create account. Please try again.";
   }
 }
 
@@ -43,7 +51,8 @@ export default function Signup() {
       }
       setLocation("/");
     } catch (err: any) {
-      setError(mapFirebaseError(err.code || ""));
+      console.error("[Signup] Firebase error:", err.code, err.message, err);
+      setError(mapFirebaseError(err.code || "", err.message));
     } finally {
       setIsPending(false);
     }
