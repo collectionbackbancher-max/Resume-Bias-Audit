@@ -12,6 +12,30 @@ declare module "http" {
   }
 }
 
+// ── Health check (must be first, before any other middleware) ──────────────
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// ── Block sensitive config/env endpoint probes ────────────────────────────
+const SENSITIVE_PATH_RE = /\.(env|config|cfg|ini|yaml|yml|toml|json\.map)$/i;
+const SENSITIVE_EXACT = new Set([
+  "/api/.env",
+  "/api/config.env",
+  "/api/env",
+  "/api/config",
+  "/.env",
+  "/config.env",
+]);
+
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (SENSITIVE_EXACT.has(p) || SENSITIVE_PATH_RE.test(p)) {
+    return res.status(404).json({ message: "Not found" });
+  }
+  next();
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
