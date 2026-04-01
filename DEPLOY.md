@@ -88,7 +88,8 @@ docker push gcr.io/YOUR_PROJECT_ID/biasauditor-api
 
 ## Step 6 — Deploy to Cloud Run
 
-Replace every `YOUR_*` placeholder with your real values:
+Replace every `YOUR_*` placeholder with your real values. **Important: use the
+service name `biasauditor-api` and region `us-central1`** to match `firebase.json`.
 
 ```bash
 gcloud run deploy biasauditor-api \
@@ -106,41 +107,19 @@ gcloud run deploy biasauditor-api \
   --set-env-vars "AI_INTEGRATIONS_OPENAI_BASE_URL=YOUR_OPENAI_BASE_URL"
 ```
 
-After deployment completes, Cloud Run prints a **Service URL** like:
-
-```
-Service URL: https://biasauditor-api-xxxxxxxxxx-uc.a.run.app
-```
-
-**Copy that URL** — you need it in the next step.
-
----
-
-## Step 7 — Add your Cloud Run URL to firebase.json
-
-Open `firebase.json` and replace **both** occurrences of `CLOUD_RUN_URL` with the
-Service URL you copied in Step 6:
+If you want to use a **different service name or region**, also update the two
+`run` blocks in `firebase.json` to match:
 
 ```json
-"rewrites": [
-  {
-    "source": "/api/**",
-    "destination": "https://biasauditor-api-xxxxxxxxxx-uc.a.run.app"
-  },
-  {
-    "source": "/health",
-    "destination": "https://biasauditor-api-xxxxxxxxxx-uc.a.run.app"
-  },
-  {
-    "source": "**",
-    "destination": "/index.html"
-  }
-]
+"run": {
+  "serviceId": "your-custom-service-name",
+  "region": "your-chosen-region"
+}
 ```
 
 ---
 
-## Step 8 — Build and deploy the frontend to Firebase Hosting
+## Step 7 — Build and deploy the frontend to Firebase Hosting
 
 ```bash
 # Build the frontend
@@ -150,6 +129,10 @@ npm run build
 firebase deploy --only hosting
 ```
 
+Firebase Hosting automatically routes `/api/**` requests to your Cloud Run service
+using the `serviceId` and `region` configured in `firebase.json` — no manual URL
+copy needed.
+
 Firebase prints your live Hosting URL:
 
 ```
@@ -158,7 +141,7 @@ Hosting URL: https://YOUR_PROJECT_ID.web.app
 
 ---
 
-## Step 9 — Allow your Firebase domain in Supabase
+## Step 8 — Allow your Firebase domain in Supabase
 
 1. Go to your [Supabase project](https://supabase.com/dashboard) → **Authentication** → **URL Configuration**
 2. Add your Firebase Hosting URL (`https://YOUR_PROJECT_ID.web.app`) to the **Redirect URLs** list
