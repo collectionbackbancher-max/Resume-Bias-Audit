@@ -208,11 +208,11 @@ export class FirestoreStorage implements IStorage {
   }
 
   async updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<UserMetadata> {
-    const update: Record<string, any> = { updatedAt: new Date().toISOString() };
-    if (profile.name !== undefined) update.name = profile.name;
-    if (profile.company !== undefined) update.company = profile.company;
-    if (profile.role !== undefined) update.role = profile.role;
-    await this.db.collection("users").doc(userId).update(update);
+    const fields: Record<string, any> = { updatedAt: new Date().toISOString() };
+    if (profile.name !== undefined) fields.name = profile.name;
+    if (profile.company !== undefined) fields.company = profile.company;
+    if (profile.role !== undefined) fields.role = profile.role;
+    await this.db.collection("users").doc(userId).set(fields, { merge: true });
     const doc = await this.db.collection("users").doc(userId).get();
     return docToUserMetadata(doc.id, doc.data()!);
   }

@@ -872,14 +872,16 @@ export async function registerRoutes(
       const event = parsePaddleEvent(req.body);
 
       // Helper: resolve user by userId from custom_data OR by subscriptionId lookup
-      async function resolveUser(userId?: string, subscriptionId?: string) {
+      async function resolveUser(userId?: string, subscriptionId?: string): Promise<import("@shared/schema").UserMetadata | undefined> {
         if (userId) {
           const u = await storage.getUserMetadata(userId);
           if (u) return u;
         }
         if (subscriptionId) {
           const raw = await paddleStorage.getUserBySubscriptionId(subscriptionId);
-          if (raw?.userId) return storage.getUserMetadata(raw.userId) as any;
+          if (raw?.userId) {
+            return storage.getUserMetadata(raw.userId);
+          }
         }
         return undefined;
       }
