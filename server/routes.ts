@@ -871,66 +871,109 @@ export async function registerRoutes(
 
       const event = parsePaddleEvent(req.body);
 
+      // Helper: resolve user by userId from custom_data OR by subscriptionId lookup
+      async function resolveUser(userId?: string, subscriptionId?: string) {
+        if (userId) {
+          const u = await storage.getUserMetadata(userId);
+          if (u) return u;
+        }
+        if (subscriptionId) {
+          const raw = await paddleStorage.getUserBySubscriptionId(subscriptionId);
+          if (raw?.userId) return storage.getUserMetadata(raw.userId) as any;
+        }
+        return undefined;
+      }
+
       // Handle transaction.completed (new purchase)
       if (event.eventType === "transaction.completed" && event.userId) {
         const plan = getPlanFromPriceId(event.priceId!);
         if (plan && event.customerId && event.subscriptionId) {
           const existing = await storage.getUserMetadata(event.userId);
           await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId, event.customerId);
+          const fromPlan = existing?.subscriptionPlan ?? "free";
+          const planRankTx: Record<string, number> = { free: 0, starter: 1, team: 2 };
+          const txEventType = (planRankTx[plan] ?? 0) >= (planRankTx[fromPlan] ?? 0)
+            ? "plan_upgraded"
+            : "plan_downgraded";
           await storage.logBillingEvent({
             userId: event.userId,
-            eventType: "plan_upgraded",
-            fromPlan: existing?.subscriptionPlan ?? "free",
+            eventType: txEventType,
+            fromPlan,
             toPlan: plan,
             subscriptionId: event.subscriptionId,
             customerId: event.customerId,
             metadata: { paddleEvent: event.eventType },
           });
-          console.log(`[Paddle] User ${event.userId} upgraded to ${plan}`);
+          console.log(`[Paddle] User ${event.userId} changed to ${plan}`);
         }
       }
 
       // Handle subscription.created
-      if (event.eventType === "subscription.created" && event.userId && event.customerId) {
-        const plan = getPlanFromPriceId(event.priceId!);
-        if (plan) {
-          const existing = await storage.getUserMetadata(event.userId);
-          await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId!, event.customerId);
+      if (event.eventType === "subscription.created") {
+        const plan = getPlanFromPriceId(event.priceId ?? "");
+        const userId = event.userId;
+        if (plan && userId && event.customerId && event.subscriptionId) {
+          const existing = await storage.getUserMetadata(userId);
+          await paddleStorage.updateUserPlan(userId, plan, event.subscriptionId, event.customerId);
+          const fromPlan = existing?.subscriptionPlan ?? "free";
           await storage.logBillingEvent({
-            userId: event.userId,
+            userId,
             eventType: "plan_upgraded",
-            fromPlan: existing?.subscriptionPlan ?? "free",
+            fromPlan,
             toPlan: plan,
             subscriptionId: event.subscriptionId,
             customerId: event.customerId,
             metadata: { paddleEvent: event.eventType },
           });
-          console.log(`[Paddle] Subscription created for ${event.userId}`);
+          console.log(`[Paddle] Subscription created for ${userId}`);
         }
       }
 
-      // Handle subscription.updated / reactivated
+      // Handle subscription.updated — covers plan changes AND reactivation
       if (event.eventType === "subscription.updated" && event.subscriptionId) {
+        const user = await resolveUser(event.userId, event.subscriptionId);
         if (event.status === "active") {
           await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "active");
-          const user = await storage.getUserMetadata(event.userId || "");
+          const newPlan = event.priceId ? getPlanFromPriceId(event.priceId) : null;
           if (user) {
-            await storage.logBillingEvent({
-              userId: user.userId,
-              eventType: "subscription_reactivated",
-              fromPlan: user.subscriptionPlan,
-              toPlan: user.subscriptionPlan,
-              subscriptionId: event.subscriptionId,
-              metadata: { paddleEvent: event.eventType },
-            });
+            const fromPlan = user.subscriptionPlan;
+            if (newPlan && newPlan !== fromPlan) {
+              // Plan change (upgrade or downgrade)
+              const planRank: Record<string, number> = { free: 0, starter: 1, team: 2 };
+              const eventType = (planRank[newPlan] ?? 0) >= (planRank[fromPlan] ?? 0)
+                ? "plan_upgraded"
+                : "plan_downgraded";
+              if (event.customerId) {
+                await paddleStorage.updateUserPlan(user.userId, newPlan, event.subscriptionId, event.customerId);
+              }
+              await storage.logBillingEvent({
+                userId: user.userId,
+                eventType,
+                fromPlan,
+                toPlan: newPlan,
+                subscriptionId: event.subscriptionId,
+                metadata: { paddleEvent: event.eventType },
+              });
+              console.log(`[Paddle] User ${user.userId} plan changed ${fromPlan} → ${newPlan}`);
+            } else {
+              // Reactivation (no plan change)
+              await storage.logBillingEvent({
+                userId: user.userId,
+                eventType: "subscription_reactivated",
+                fromPlan,
+                toPlan: fromPlan,
+                subscriptionId: event.subscriptionId,
+                metadata: { paddleEvent: event.eventType },
+              });
+              console.log(`[Paddle] Subscription ${event.subscriptionId} reactivated`);
+            }
           }
-          console.log(`[Paddle] Subscription ${event.subscriptionId} reactivated`);
         }
       }
 
       // Handle subscription.canceled
       if (event.eventType === "subscription.canceled" && event.subscriptionId) {
-        const user = await storage.getUserMetadata(event.userId || "");
+        const user = await resolveUser(event.userId, event.subscriptionId);
         await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "canceled");
         if (user) {
           await storage.logBillingEvent({
@@ -942,7 +985,27 @@ export async function registerRoutes(
             metadata: { paddleEvent: event.eventType },
           });
         }
-        console.log(`[Paddle] Subscription ${event.subscriptionId} canceled, plan reverted to free`);
+        console.log(`[Paddle] Subscription ${event.subscriptionId} canceled`);
+      }
+
+      // Handle transaction.payment_failed (payment failure)
+      if (event.eventType === "transaction.payment_failed") {
+        const user = await resolveUser(event.userId, event.subscriptionId);
+        if (user) {
+          await storage.logBillingEvent({
+            userId: user.userId,
+            eventType: "payment_failed",
+            fromPlan: user.subscriptionPlan,
+            toPlan: user.subscriptionPlan,
+            subscriptionId: event.subscriptionId,
+            customerId: event.customerId,
+            metadata: {
+              paddleEvent: event.eventType,
+              transactionId: event.transactionId,
+            },
+          });
+          console.log(`[Paddle] Payment failed for user ${user.userId}`);
+        }
       }
 
       res.json({ success: true });
