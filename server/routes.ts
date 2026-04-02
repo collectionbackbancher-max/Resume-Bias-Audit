@@ -945,8 +945,16 @@ export async function registerRoutes(
               const eventType = (planRank[newPlan] ?? 0) >= (planRank[fromPlan] ?? 0)
                 ? "plan_upgraded"
                 : "plan_downgraded";
-              if (event.customerId) {
-                await paddleStorage.updateUserPlan(user.userId, newPlan, event.subscriptionId, event.customerId);
+              const effectiveCustomerId = event.customerId ?? (user.customerId || undefined);
+              if (effectiveCustomerId) {
+                await paddleStorage.updateUserPlan(user.userId, newPlan, event.subscriptionId, effectiveCustomerId);
+              } else {
+                // No customerId available — update plan fields directly so state stays consistent
+                const db = (await import("./firebaseAdmin")).getFirestore();
+                await db.collection("users").doc(user.userId).set(
+                  { subscriptionPlan: newPlan, paddleStatus: "active" },
+                  { merge: true }
+                );
               }
               await storage.logBillingEvent({
                 userId: user.userId,

@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
-import { getAuth, getFirestore } from "./firebaseAdmin";
+import { getAuth } from "./firebaseAdmin";
+import { storage } from "./storage";
 
 export interface FirebaseUser {
   id: string;
@@ -33,28 +34,9 @@ export const isAuthenticated: RequestHandler = async (req: any, res, next) => {
       decoded.display_name ||
       email.split("@")[0];
 
-    // Ensure the user document exists in Firestore with all required fields
+    // Ensure the user document exists in Firestore (logs account_created on first creation)
     try {
-      const db = getFirestore();
-      const userRef = db.collection("users").doc(uid);
-      const snap = await userRef.get();
-      const now = new Date().toISOString();
-      if (!snap.exists) {
-        await userRef.set({
-          userId: uid,
-          email,
-          name,
-          subscriptionPlan: "free",
-          scansUsed: 0,
-          lastScanReset: now,
-          subscriptionId: null,
-          customerId: null,
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else {
-        await userRef.set({ email, name, updatedAt: now }, { merge: true });
-      }
+      await storage.createUserMetadata({ userId: uid, email, name });
     } catch (err) {
       console.warn("[firebaseAuth] upsert user failed:", err);
     }
