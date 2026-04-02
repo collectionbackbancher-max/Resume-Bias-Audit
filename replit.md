@@ -46,15 +46,24 @@ The application provides resume scanning, bias detection, and reporting features
 
 ### Database
 - **Type**: Firestore (Firebase).
-- **Collections**: `users` (doc ID = Firebase UID, stores plan/usage), `scans` (auto-ID, bias analysis results), `ats_connections` (doc ID = userId).
-- **Schema**: Plain TypeScript interfaces in `shared/schema.ts` (no ORM).
+- **Collections**:
+  - `users` (doc ID = Firebase UID) — plan, scan counts, Paddle subscription IDs, profile fields (`company`, `role`, `name`), `teamId`
+  - `scans` (auto-ID) — bias analysis results per resume
+  - `ats_connections` (doc ID = userId) — ATS API keys
+  - `billing_events` (auto-ID) — audit log of every subscription change (upgrade, downgrade, cancellation, admin_override, account_created). Fields: `userId`, `eventType`, `fromPlan`, `toPlan`, `subscriptionId`, `customerId`, `metadata`, `createdAt`
+  - `teams` (auto-ID) — team accounts with `name`, `ownerId`, `seatsLimit`
+  - `team_members` (auto-ID) — links users to teams with `role` (owner/admin/member), `status` (active/invited/removed)
+- **Schema**: Plain TypeScript interfaces + Zod schemas in `shared/schema.ts` (no ORM). Types: `Scan`, `UserMetadata`, `AtsConnection`, `BillingEvent`, `Team`, `TeamMember`.
 - **Storage layer**: `server/storage.ts` (`FirestoreStorage` class) — full CRUD via `firebase-admin/firestore`.
+- **Profile API**: `GET /api/user/profile`, `PATCH /api/user/profile` — read/update `name`, `company`, `role`.
+- **Billing history API**: `GET /api/user/billing-events` — returns user's audit log.
+- **Admin override API**: `POST /api/admin/user/:id/plan` — change any user's plan (requires caller UID in `ADMIN_UIDS` env var).
 
 ### Pricing & Subscription
 - **Tiers**: Free, Starter, and Team plans with varying scan limits, features (e.g., bulk uploads, PDF downloads), and pricing.
 - **Enforcement**: Backend logic enforces plan limits and feature access.
 - **Frontend**: Displays plan information, usage, and upgrade options.
-- **Billing**: Paddle integration present (webhook endpoint at `/api/paddle/webhook`). Paddle storage backed by Firestore via `server/replit_integrations/paddle/storage.ts`.
+- **Billing**: Paddle integration present (webhook endpoint at `/api/paddle/webhook`). Paddle storage backed by Firestore via `server/replit_integrations/paddle/storage.ts`. All plan changes write a `billing_events` record automatically.
 
 ## External Dependencies
 

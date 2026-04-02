@@ -864,7 +864,6 @@ export async function registerRoutes(
       const signature = req.headers["paddle-signature"] as string;
       const body = JSON.stringify(req.body);
 
-      // Verify webhook signature
       if (!verifyPaddleWebhook(body, signature, process.env.PADDLE_WEBHOOK_SECRET!)) {
         console.warn("Invalid Paddle webhook signature");
         return res.status(401).json({ error: "Invalid signature" });
@@ -876,7 +875,17 @@ export async function registerRoutes(
       if (event.eventType === "transaction.completed" && event.userId) {
         const plan = getPlanFromPriceId(event.priceId!);
         if (plan && event.customerId && event.subscriptionId) {
+          const existing = await storage.getUserMetadata(event.userId);
           await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId, event.customerId);
+          await storage.logBillingEvent({
+            userId: event.userId,
+            eventType: "plan_upgraded",
+            fromPlan: existing?.subscriptionPlan ?? "free",
+            toPlan: plan,
+            subscriptionId: event.subscriptionId,
+            customerId: event.customerId,
+            metadata: { paddleEvent: event.eventType },
+          });
           console.log(`[Paddle] User ${event.userId} upgraded to ${plan}`);
         }
       }
@@ -885,22 +894,54 @@ export async function registerRoutes(
       if (event.eventType === "subscription.created" && event.userId && event.customerId) {
         const plan = getPlanFromPriceId(event.priceId!);
         if (plan) {
+          const existing = await storage.getUserMetadata(event.userId);
           await paddleStorage.updateUserPlan(event.userId, plan, event.subscriptionId!, event.customerId);
+          await storage.logBillingEvent({
+            userId: event.userId,
+            eventType: "plan_upgraded",
+            fromPlan: existing?.subscriptionPlan ?? "free",
+            toPlan: plan,
+            subscriptionId: event.subscriptionId,
+            customerId: event.customerId,
+            metadata: { paddleEvent: event.eventType },
+          });
           console.log(`[Paddle] Subscription created for ${event.userId}`);
         }
       }
 
-      // Handle subscription.updated
+      // Handle subscription.updated / reactivated
       if (event.eventType === "subscription.updated" && event.subscriptionId) {
         if (event.status === "active") {
           await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "active");
+          const user = await storage.getUserMetadata(event.userId || "");
+          if (user) {
+            await storage.logBillingEvent({
+              userId: user.userId,
+              eventType: "subscription_reactivated",
+              fromPlan: user.subscriptionPlan,
+              toPlan: user.subscriptionPlan,
+              subscriptionId: event.subscriptionId,
+              metadata: { paddleEvent: event.eventType },
+            });
+          }
           console.log(`[Paddle] Subscription ${event.subscriptionId} reactivated`);
         }
       }
 
       // Handle subscription.canceled
       if (event.eventType === "subscription.canceled" && event.subscriptionId) {
+        const user = await storage.getUserMetadata(event.userId || "");
         await paddleStorage.updateSubscriptionStatus(event.subscriptionId, "canceled");
+        if (user) {
+          await storage.logBillingEvent({
+            userId: user.userId,
+            eventType: "subscription_canceled",
+            fromPlan: user.subscriptionPlan,
+            toPlan: "free",
+            subscriptionId: event.subscriptionId,
+            metadata: { paddleEvent: event.eventType },
+          });
+        }
         console.log(`[Paddle] Subscription ${event.subscriptionId} canceled, plan reverted to free`);
       }
 
@@ -908,6 +949,106 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Paddle webhook error:", err);
       res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // ── User profile endpoints ──────────────────────────────────────────────────
+  app.get("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      let userMeta = await storage.getUserMetadata(req.user.id);
+      if (!userMeta) {
+        userMeta = await storage.createUserMetadata({ userId: req.user.id, email: req.user.email });
+      }
+      res.json({
+        id: userMeta.userId,
+        email: userMeta.email,
+        name: userMeta.name ?? req.user.name ?? null,
+        company: userMeta.company ?? null,
+        role: userMeta.role ?? null,
+        subscriptionPlan: userMeta.subscriptionPlan,
+        createdAt: userMeta.createdAt,
+      });
+    } catch (err) {
+      console.error("GET /api/user/profile error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const { updateUserProfileSchema } = await import("@shared/schema");
+      const parsed = updateUserProfileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+      }
+      const updated = await storage.updateUserProfile(req.user.id, parsed.data);
+      res.json({
+        id: updated.userId,
+        email: updated.email,
+        name: updated.name ?? null,
+        company: updated.company ?? null,
+        role: updated.role ?? null,
+        subscriptionPlan: updated.subscriptionPlan,
+      });
+    } catch (err) {
+      console.error("PATCH /api/user/profile error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ── Billing events history ──────────────────────────────────────────────────
+  app.get("/api/user/billing-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const events = await storage.getUserBillingEvents(req.user.id);
+      res.json(events);
+    } catch (err) {
+      console.error("GET /api/user/billing-events error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ── Admin plan override ─────────────────────────────────────────────────────
+  app.post("/api/admin/user/:id/plan", isAuthenticated, async (req: any, res) => {
+    const adminUids = (process.env.ADMIN_UIDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!adminUids.includes(req.user.id)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const targetUserId = req.params.id;
+      const { plan } = req.body;
+      if (!["free", "starter", "team"].includes(plan)) {
+        return res.status(400).json({ message: "Invalid plan. Must be free, starter, or team." });
+      }
+
+      const existing = await storage.getUserMetadata(targetUserId);
+      if (!existing) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const fromPlan = existing.subscriptionPlan;
+      await (await import("./firebaseAdmin")).getFirestore()
+        .collection("users")
+        .doc(targetUserId)
+        .update({
+          subscriptionPlan: plan,
+          paddleStatus: plan === "free" ? null : "active",
+          updatedAt: new Date().toISOString(),
+        });
+
+      await storage.logBillingEvent({
+        userId: targetUserId,
+        eventType: "admin_override",
+        fromPlan,
+        toPlan: plan,
+        metadata: { adminId: req.user.id, adminEmail: req.user.email },
+      });
+
+      console.log(`[Admin] ${req.user.email} changed user ${targetUserId} from ${fromPlan} to ${plan}`);
+      res.json({ success: true, userId: targetUserId, fromPlan, toPlan: plan });
+    } catch (err) {
+      console.error("POST /api/admin/user/:id/plan error:", err);
+      res.status(500).json({ message: "Server error" });
     }
   });
 
